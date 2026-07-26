@@ -1,26 +1,26 @@
-system = """
-You are a code reviewer. Classify each issue as CRITICAL, HIGH,
-MEDIUM, or LOW using the following examples as your guide.
-
-EXAMPLE 1:
-Input code: cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
-Reasoning: Direct f-string into SQL query. User input reaches
-           the database without sanitization. SQL injection possible.
-Severity: CRITICAL
-Issue: SQL injection vulnerability — no parameterization
-
-EXAMPLE 2:
-Input code: def get_data(x, y, z):
-Reasoning: Short parameter names reduce readability but have
-           no security or correctness impact. No runtime risk.
-Severity: LOW
-Issue: Non-descriptive parameter names
-
-Now classify the following code issues:
-"""
+# few_shot_examples.py
+# =====================
+# SINGLE TOPIC: Few-shot prompting for consistent output
+#
+# What you learn:
+#   - How few-shot examples improve output consistency and quality
+#   - How to handle ambiguous cases with reasoning chains
+#   - How to reduce false positives with concrete examples
+#   - The right number of examples (2-4 is usually enough)
+#
+# Exam domain covered:
+#   Domain 4 — Prompt Engineering & Structured Output (Subdomain 4.2)
+#   "Few-shot examples as the most effective technique for achieving
+#    consistently formatted, actionable output."
 
 
-
+# ══════════════════════════════════════════════════════════════════
+# PATTERN: Few-shot classification
+# ══════════════════════════════════════════════════════════════════
+#
+# Give 2-4 examples covering different severity levels and edge cases.
+# Each example shows: Input → Reasoning → Output.
+# The model learns to generalize from these examples to new inputs.
 
 SYSTEM_PROMPT = """
 You are a code reviewer for a CI/CD pipeline.
@@ -57,9 +57,15 @@ Severity:  MEDIUM
 """
 
 
+# ══════════════════════════════════════════════════════════════════
+# PATTERN: Few-shot with ambiguous cases
+# ══════════════════════════════════════════════════════════════════
+#
+# Few-shot examples are most valuable for AMBIGUOUS cases — where the
+# model might hesitate or give inconsistent answers. Show reasoning
+# for why one action was chosen over plausible alternatives.
 
-— Two examples covering different document structures —
-"""
+EXTRACTION_PROMPT = """
 Extract: contract_value, effective_date, payment_terms
 
 EXAMPLE 1 — Structured table format:
@@ -90,3 +96,23 @@ Output:
   effective_date:   INFERRED  | Q1 2025 (projected)
   payment_terms:    EXTRACTED | Net 30
 """
+
+
+# ══════════════════════════════════════════════════════════════════
+# KEY TAKEAWAYS
+# ══════════════════════════════════════════════════════════════════
+#
+# 1. Few-shot examples are the MOST EFFECTIVE technique for consistent
+#    output when detailed instructions alone produce inconsistent results.
+#
+# 2. Include 2-4 examples covering different severity levels and edge cases.
+#    Each example should show: Input → Reasoning → Output.
+#
+# 3. Show reasoning for ambiguous cases — the model learns to generalize
+#    judgment to novel patterns, not just match pre-specified cases.
+#
+# 4. Include examples that demonstrate acceptable code patterns (SKIP)
+#    alongside genuine issues (REPORT) to reduce false positives.
+#
+# 5. For extraction tasks, include examples with varied document structures
+#    (tables vs prose) to handle real-world input diversity.
