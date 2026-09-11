@@ -492,22 +492,242 @@ NOTE: Codebase has changed since. Treat as hypotheses to validate.
 
 ## Step 11: prompt_chaining — Sequential Chaining
 
-*Notes coming after review...*
+**What it teaches:** Fixed sequential pipelines for predictable multi-step tasks.
+
+### The Pattern
+
+```
+Step 1: Per-file review → focused scope per changed file
+Step 2: Cross-file integration → look at how changes interact
+Step 3: Final summary → severity-ranked report
+```
+
+```python
+# Step 1: Per-file review
+for file in changed_files:
+    review = claude(prompt=f"Review {file}", context=read_file(file))
+    file_reviews.append(review)
+
+# Step 2: Cross-file integration (output of Step 1 as input)
+integration_issues = claude(
+    prompt="Identify cross-cutting concerns",
+    context="\n".join(file_reviews)
+)
+
+# Step 3: Final summary (output of Step 2 as input)
+final_report = claude(
+    prompt="Generate PR review summary, rank by severity",
+    context=integration_issues
+)
+```
+
+### Fixed vs Dynamic (Review from Step 7)
+
+| Fixed (this file) | Dynamic (Step 7) |
+|---|---|
+| Predictable steps | Findings determine next step |
+| Code review: per-file → cross-file → summary | Incident response: logs → query → config → root cause |
+| Each step's input is previous step's output | Each step's input depends on discoveries |
+
+### Key Exam Facts
+1. Fixed chains: each step's output feeds next step's input.
+2. Use for predictable multi-aspect tasks (code review, document processing).
+3. Avoids attention dilution by splitting large tasks into focused passes.
+4. Different from dynamic decomposition (which adapts based on findings).
 
 ---
 
 ## Step 12: few_shot_examples.py — Few-Shot Prompting
 
-*Notes coming after review...*
+**What it teaches:** How examples improve output consistency and reduce false positives.
+
+### Pattern 1: Classification Examples
+
+```python
+EXAMPLE 1 — CRITICAL:
+Code:      if not verify_token(token): pass
+Reasoning: Auth check silently bypassed. Direct security control failure.
+Severity:  CRITICAL
+
+EXAMPLE 2 — HIGH:
+Code:      user_data = json.loads(request.body)  # no try/except
+Reasoning: Malformed JSON causes unhandled exception. Availability impact.
+Severity:  HIGH
+
+EXAMPLE 3 — MEDIUM:
+Code:      log.debug(f"Processing user {user_id}")
+Reasoning: Debug logging in production — minor perf impact.
+Severity:  MEDIUM
+```
+
+**Each example shows: Input → Reasoning → Output**
+
+### Pattern 2: Ambiguous Case Handling
+
+```python
+EXAMPLE 1 — Structured table:
+Document: | Amount | USD 45,000 | Start Date | March 1, 2025 |
+Reasoning: Explicit table — values directly stated, no inference.
+Output: contract_value: EXTRACTED | USD 45,000
+
+EXAMPLE 2 — Prose paragraph:
+Document: "total engagement fee of forty-five thousand dollars..."
+Reasoning: Stated in prose — EXTRACTED. Date says "anticipated" — INFERRED.
+Output: effective_date: INFERRED | Q1 2025 (projected)
+```
+
+### When to Use Few-Shot
+
+| Situation | Use few-shot? |
+|---|---|
+| Detailed instructions produce inconsistent output | Yes |
+| Ambiguous cases need reasoning chains | Yes |
+| Need to reduce false positives | Yes |
+| Simple, well-defined task | No — instructions sufficient |
+
+### Key Exam Facts
+1. Few-shot = MOST EFFECTIVE technique for consistent output.
+2. Include 2-4 examples with Input → Reasoning → Output.
+3. Show reasoning for ambiguous cases — model generalizes judgment.
+4. Include SKIP examples alongside REPORT examples to reduce false positives.
 
 ---
 
 ## Step 13: ci_pipeline.sh — CI/CD Integration
 
-*Notes coming after review...*
+**What it teaches:** How to run Claude Code in CI/CD pipelines for automated code review.
+
+### The Pipeline
+
+```yaml
+steps:
+  1. Load prior review findings (dedup)
+  2. Run Claude review (-p flag, structured output)
+  3. Block merge on critical findings
+```
+
+### Key CLI Flags
+
+| Flag | Purpose |
+|---|---|
+| `-p` / `--print` | Non-interactive mode (no hanging on input) |
+| `--output-format json` | Machine-parseable output |
+| `--json-schema` | Enforce structured output schema |
+
+### Dedup Pattern
+
+```bash
+# Load prior findings
+PRIOR=$(cat prior_findings.txt)
+
+# Include in prompt — Claude skips already-reported issues
+claude -p "Review the PR. Existing issues (skip): ${PRIOR}" \
+  --output-format json > findings.json
+```
+
+### Block Merge on Critical
+
+```bash
+CRITICAL=$(jq '.findings | map(select(.severity=="critical")) | length' findings.json)
+[ "$CRITICAL" -eq 0 ] || exit 1  # fail if critical findings exist
+```
+
+### Key Exam Facts
+1. `-p` flag = non-interactive mode for CI (prevents input hangs).
+2. `--output-format json` + `--json-schema` = structured output.
+3. Include prior findings to avoid duplicate comments.
+4. CLAUDE.md loaded automatically — provides project context.
+5. Fresh session each run — don't review own changes (self-review limitation).
 
 ---
 
 ## Step 14: capstone_project.py — Multi-Agent Combo
 
-*Notes coming after review...*
+**What it teaches:** Everything combined — loop, coordinator, hooks, escalation.
+
+This is the **integration file**. It connects Steps 1-13 into one working system.
+
+### What's Covered
+
+| Concept | From Step | In This File |
+|---|---|---|
+| Agentic loop | Step 2 | `run_agentic_loop()` |
+| Tool definitions | Step 5 | `TOOLS` array with 4 tools |
+| Error categories | Step 2 | `handle_tool_call()` with T-P-V-I |
+| Coordinator pattern | Step 8 | `coordinator()` decomposes + delegates |
+| Context passing | Step 9 | Structured findings passed between subagents |
+| Few-shot prompting | Step 12 | System prompt with resolve/escalate examples |
+| PreToolUse hooks | NEW | `prerequisite_gate()`, `enforce_refund_policy()` |
+| PostToolUse hooks | NEW | `normalize_order_result()`, `update_verification_state()` |
+| Escalation | NEW | `escalate_to_human()` tool |
+
+### PreToolUse Hooks (NEW — not in earlier steps)
+
+```python
+def prerequisite_gate(tool_name, tool_params):
+    """Block refund/lookup until customer verified."""
+    if tool_name in ("process_refund", "lookup_order"):
+        if not session["customer_verified"]:
+            return {"allowed": False, "reason": "Call get_customer first."}
+    return {"allowed": True}
+
+def enforce_refund_policy(tool_name, tool_params):
+    """Block refunds above $500 agent limit."""
+    if tool_name == "process_refund" and tool_params.get("amount", 0) > 500:
+        return {"allowed": False, "reason": "Exceeds $500 limit.", "action_required": "escalate_to_human"}
+    return {"allowed": True}
+```
+
+**Order matters: prerequisite gate BEFORE business rule check.**
+
+### PostToolUse Hooks (NEW — not in earlier steps)
+
+```python
+def normalize_order_result(tool_name, raw_result):
+    """Convert raw DB fields to readable format."""
+    # status code → string, Unix ts → date, cents → dollars
+    # Runs AFTER tool returns, BEFORE model sees result
+
+def update_verification_state(tool_name, raw_result):
+    """Flip session flag when get_customer succeeds."""
+    # Must be PostToolUse — only know success after tool runs
+```
+
+### Escalation Triggers
+
+| Trigger | Action |
+|---|---|
+| Customer explicitly asks for human | Escalate immediately |
+| Refund exceeds $500 limit | Hook blocks → escalate |
+| Verification fails | Return error, don't escalate |
+| Repeated failures | Escalate with context |
+
+### Key Exam Facts
+1. PreToolUse hooks = policy gates BEFORE tool execution.
+2. PostToolUse hooks = data normalization AFTER tool execution.
+3. Hook order matters: prerequisites before business rules.
+4. Escalate immediately when customer explicitly requests human.
+5. This file combines ALL concepts from Steps 1-13.
+
+---
+
+## CONGRATULATIONS — All 14 Steps Complete!
+
+### Quick Reference Card
+
+| Step | File | One-Liner |
+|---|---|---|
+| 1 | api_check.py | SDK connects via env var |
+| 2 | agent.py | Loop: end_turn exit, tool_use continue, 4 error categories |
+| 3 | research_summarizer.py | 2-tool pattern: search → fetch |
+| 4 | inbuilt_tools.py | Grep=content, Glob=paths, Edit fallback=Read+Write |
+| 5 | tool_choice.py | auto/any/forced. Descriptions: WHAT/WHEN/NOT/RETURNED |
+| 6 | developer_productivity.py | Grep→Read→Grep→Read. Phases: Discover→Understand→Act |
+| 7 | dynamic_decomposition.py | Fixed=predictable. Dynamic=findings determine next step |
+| 8 | multi_agents.py | Task tool spawns subagents. Multiple calls=parallel |
+| 9 | subagent_context.py | CASE_FACTS. Structured objects. Claim-source mappings |
+| 10 | fork_session.py | Fork=branches. Fresh+summary > stale resume |
+| 11 | prompt_chaining | Sequential: output of step N = input of step N+1 |
+| 12 | few_shot_examples.py | 2-4 examples. Input→Reasoning→Output. Ambiguous cases |
+| 13 | ci_pipeline.sh | -p flag, --output-format json, dedup prior findings |
+| 14 | capstone_project.py | Everything: loop+coordinator+hooks+escalation |
