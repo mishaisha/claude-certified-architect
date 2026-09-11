@@ -141,13 +141,91 @@ On error, add `"is_error": True` and structured error metadata.
 
 ## Step 3: research_summarizer.py — Full Single-Agent
 
-*Notes coming after review...*
+**What it teaches:** A complete runnable agent — tools, error handling, loop, all in one file.
+
+Reinforces Step 2 with a real use case: searching a document corpus.
+
+### What's New vs Step 2
+
+| Concept | Step 2 (agent.py) | Step 3 (this file) |
+|---|---|---|
+| Tools | 1 tool (lookup_order) | 2 tools (search_docs + fetch_doc) |
+| Tool descriptions | Basic | Detailed: WHAT, WHEN, WHAT NOT, WHAT RETURNED |
+| Use case | Single lookup | Multi-step research |
+
+### Tool Design Pattern (EXAM CRITICAL)
+
+Each description answers 4 questions:
+1. WHAT does it do?
+2. WHEN should I call it?
+3. WHAT NOT to use it for?
+4. WHAT does it return?
+
+```python
+"search_docs": "Call this FIRST to discover which documents exist...
+                Do NOT use this to read full contents — use fetch_doc."
+
+"fetch_doc":   "Call this AFTER search_docs to read actual content.
+                Do NOT call with a topic keyword."
+```
+
+### The Two-Tool Flow
+
+```
+User: "Research tool-use loop"
+   → Claude calls search_docs(topic="tool-use") → returns [doc-002, doc-005]
+   → Claude calls fetch_doc(doc_id="doc-002") → returns full body
+   → Claude calls fetch_doc(doc_id="doc-005") → returns full body
+   → Claude synthesizes → stop_reason == "end_turn"
+```
+
+### Key Exam Facts
+1. Tool descriptions drive selection — write them carefully
+2. Two-tool pattern: search first → fetch second
+3. Same error handling as Step 2 (transient/permission/validation/internal)
+4. Same loop pattern — exit on `end_turn`, safety valve on `MAX_ITERATIONS`
 
 ---
 
 ## Step 4: inbuilt_tools.py — Built-in Tools
 
-*Notes coming after review...*
+**What it teaches:** The 5 tools Claude Code uses to interact with your filesystem.
+
+### The 5 Built-in Tools
+
+| Tool | What it does | Input | Use when |
+|---|---|---|---|
+| `grep` | Search file **content** | pattern, path, include | Find function calls, error messages, imports |
+| `glob` | Search file **paths** | pattern, path | Find files by name/extension |
+| `read` | Read full file | file_path | Load file into context |
+| `write` | Create/overwrite file | file_path, content | Generate new files |
+| `edit` | Targeted replacement | file_path, old_string, new_string | Modify specific lines |
+
+### Grep vs Glob (EXAM FAVORITE)
+
+```
+Grep = CONTENT search → "find all callers of process_refund"
+Glob = PATH search    → "find all .test.tsx files"
+```
+
+Memory trick: Grep = grep (search text). Glob = glob (match patterns).
+
+### The Edit Fallback Pattern (EXAM CRITICAL)
+
+```
+Step 1: Edit fails (old_string matches multiple locations)
+Step 2: Read the full file
+Step 3: Claude modifies in reasoning
+Step 4: Write the entire updated file
+```
+
+Why: Edit needs unique anchor text. If text appears multiple times, it fails. Fallback: Read + Write.
+
+### Key Exam Facts
+1. **Grep** = content search. **Glob** = path search.
+2. **Edit** needs unique `old_string`. Non-unique → fails.
+3. **Fallback**: Edit fails → Read full file → Write updated version.
+4. Don't read all files upfront — use Grep to find entry points first.
 
 ---
 
