@@ -231,37 +231,262 @@ Why: Edit needs unique anchor text. If text appears multiple times, it fails. Fa
 
 ## Step 5: tool_choice.py — Tool Choice + Descriptions
 
-*Notes coming after review...*
+**What it teaches:** How tool_choice controls selection + how descriptions drive tool selection.
+
+### Part 1: tool_choice Configuration
+
+| Value | Behavior | Use when |
+|---|---|---|
+| `"auto"` | Model decides tool or text | Default — most common |
+| `"any"` | Model must call SOME tool | Guarantee structured output |
+| `{"type": "tool", "name": "..."}` | Force specific tool | Tool must run first |
+
+### Part 2: Description Design (EXAM CRITICAL)
+
+**Anti-pattern — ambiguous descriptions:**
+```python
+{"name": "search_web", "description": "Search for information"}
+{"name": "search_documents", "description": "Search documents for information"}
+# Claude picks randomly — descriptions overlap
+```
+
+**Fix — clear, differentiated descriptions:**
+```python
+{"name": "search_web", "description": "Query live web pages... Do NOT use for documents already loaded."}
+{"name": "search_documents", "description": "Full-text search across pre-loaded corpus... Do NOT use to find new sources."}
+```
+
+### Part 3: System Prompt Interaction
+
+System prompt wording can override well-written descriptions. If prompt says "search for X", Claude may call `search_web` even when `search_documents` is better.
+
+### Key Exam Facts
+1. `tool_choice: "auto"` = model decides. `"any"` = must call a tool. Forced = specific tool.
+2. Descriptions are the PRIMARY selection mechanism: WHAT, WHEN, WHAT NOT, WHAT RETURNED.
+3. Ambiguous descriptions cause misrouting. Fix by renaming + rewriting.
+4. System prompts can override descriptions — review for keyword-sensitive instructions.
 
 ---
 
 ## Step 6: developer_productivity.py — Codebase Exploration
 
-*Notes coming after review...*
+**What it teaches:** How to incrementally build understanding using Grep → Read → Grep → Read.
+
+### Pattern 1: Incremental Exploration
+
+```
+WRONG: Read all 30 files hoping to find the refund flow.
+RIGHT: Grep for entry point, follow the call chain.
+```
+
+```
+Step 1: grep(pattern="def process_refund")  → src/billing/refunds.py:15
+Step 2: read("src/billing/refunds.py")      → reveals validate_customer()
+Step 3: grep(pattern="def validate_customer") → src/auth/customer_validator.py:8
+Step 4: read("src/auth/customer_validator.py") → full flow understood
+```
+
+**Result: 2 files loaded, not 30.**
+
+### Pattern 2: Multi-Phase Exploration
+
+```
+Phase 1: Discovery   → Glob (find files) + Grep (find entry point)
+Phase 2: Understanding → Read key files + trace dependencies
+Phase 3: Action       → Write new code
+Phase 4: Fix          → Edit existing code
+```
+
+### Key Exam Facts
+1. Start with Grep to find entry points — don't read files blindly.
+2. Follow the call chain: Grep → Read → Grep → Read.
+3. Glob = file discovery (name patterns). Grep = content search (code patterns).
+4. For larger tasks: Discovery → Understanding → Action → Fix.
 
 ---
 
 ## Step 7: dynamic_decomposition.py — Adaptive Decomposition
 
-*Notes coming after review...*
+**What it teaches:** When subtasks should be generated dynamically based on discoveries.
+
+### Fixed vs Dynamic Decomposition
+
+| Approach | When to use | Example |
+|---|---|---|
+| Fixed (prompt chaining) | Predictable multi-step tasks | Code review: per-file → cross-file → summary |
+| Dynamic (adaptive) | Open-ended investigation | Incident response: findings determine next step |
+
+### Dynamic Decomposition Pattern
+
+```python
+system = """
+You are investigating a production incident.
+Start with error logs. Based on what you find,
+decide your next investigation step.
+Generate subtasks dynamically — next steps depend on findings.
+"""
+```
+
+**Sequence emerges from work — NOT predictable upfront:**
+```
+Turn 1: read_logs     → finds DB timeout errors
+Turn 2: query_db      → finds unindexed query
+Turn 3: check_config  → confirms missing index
+Turn 4: end_turn      → root cause + remediation
+```
+
+### Key Exam Facts
+1. Fixed decomposition = predictable tasks. Dynamic = open-ended investigation.
+2. Dynamic: model generates subtasks based on intermediate findings.
+3. Fixed: prompt chaining with predetermined steps.
+4. Use dynamic when you can't predict the investigation path upfront.
 
 ---
 
 ## Step 8: multi_agents.py — Coordinator Pattern
 
-*Notes coming after review...*
+**What it teaches:** How a coordinator delegates to subagents via the Task tool.
+
+### Coordinator Configuration
+
+```python
+coordinator_config = {
+    "tools": [{"type": "task", "name": "Task"}],
+    "allowedTools": ["Task", "compile_report"]  # MUST include "Task"
+}
+```
+
+### Task Tool (AgentDefinition)
+
+```python
+{
+    "type": "tool_use",
+    "name": "Task",
+    "input": {
+        "description": "Web Search Specialist",
+        "prompt": "Research goal: Find papers on...",
+        "allowed_tools": ["web_search", "read_url"],  # NO Task here
+        "model": "claude-haiku-4-5"
+    }
+}
+```
+
+### Parallel Spawning (EXAM FAVORITE)
+
+```python
+# ALL THREE in same content array = PARALLEL execution
+"content": [
+    {"type": "tool_use", "name": "Task", "input": {"description": "Env Researcher", ...}},
+    {"type": "tool_use", "name": "Task", "input": {"description": "Econ Researcher", ...}},
+    {"type": "tool_use", "name": "Task", "input": {"description": "Policy Analyst", ...}},
+]
+# Separate turns = sequential ANTI-PATTERN
+```
+
+### Key Exam Facts
+1. Coordinator uses Task tool to spawn subagents.
+2. `allowedTools` MUST include `"Task"` for coordinator.
+3. Subagent gets NO Task tool — scoped to its role.
+4. Multiple Task calls in one response = parallel. Separate turns = sequential.
 
 ---
 
 ## Step 9: subagent_context.py — Context Passing
 
-*Notes coming after review...*
+**What it teaches:** Why context must be explicitly passed + how to preserve claim-source mappings.
+
+### Problem: Critical Data Gets Summarized Away
+
+```
+$149.99 → "approximately $150" → "a refund"
+day 29 of 30 → "recently" → "some time ago"
+```
+
+### Solution: CASE_FACTS Pattern
+
+```python
+CASE_FACTS = {
+    "refund_amount": 149.99,      # exact — never summarize
+    "days_since_order": 29,        # CRITICAL: day 29 of 30
+    "customer_request": "full_refund",
+}
+# Injected fresh each turn — survives summarization
+```
+
+### Structured Findings (Not Prose)
+
+```python
+# WRONG: "The first agent found that subagents don't inherit context."
+# RIGHT:
+{
+    "finding": "Subagents do not inherit coordinator conversation history.",
+    "source_url": "https://docs.anthropic.com/...",
+    "retrieved_at": "2025-03-15T09:12:00Z",
+    "confidence": "high"
+}
+```
+
+### Claim-Source Mappings
+
+```python
+{
+    "claims": [{"claim_id": "c001", "text": "...", "source_id": "src_001"}],
+    "sources": [{"source_id": "src_001", "url": "...", "retrieved_at": "..."}],
+    "conflicts": []  # annotate conflicts, don't select one
+}
+```
+
+### Key Exam Facts
+1. Subagents do NOT inherit parent context. Always pass explicitly.
+2. CASE_FACTS persists critical data outside summarization.
+3. Pass structured objects, not prose summaries.
+4. Preserve claim-source mappings through synthesis.
+5. Annotate conflicts with attribution — don't arbitrarily select one.
 
 ---
 
 ## Step 10: fork_session.py — Session Management
 
-*Notes coming after review...*
+**What it teaches:** When to fork vs. resume vs. start fresh.
+
+### Fork Session — Parallel Exploration
+
+```python
+fork_a = client.beta.sessions.fork(
+    session_id=baseline_session_id,
+    system_prompt_addition="Explore approach A: service layer pattern."
+)
+fork_b = client.beta.sessions.fork(
+    session_id=baseline_session_id,
+    system_prompt_addition="Explore approach B: CQRS pattern."
+)
+# Both get same baseline, explore independently, don't contaminate each other
+```
+
+### Resume vs. Start Fresh
+
+| Scenario | Use |
+|---|---|
+| Prior context still valid, no code changes | `--resume` with session name |
+| Code has changed, stale tool results | Start fresh + inject summary |
+
+### Start Fresh with Summary
+
+```python
+prior_findings_summary = """
+PRIOR ANALYSIS SUMMARY (from 2025-03-13):
+- Architecture: monolith, Django 4.2
+- Key coupling: auth and billing share User model
+NOTE: Codebase has changed since. Treat as hypotheses to validate.
+"""
+# Inject into fresh session — not resumed stale session
+```
+
+### Key Exam Facts
+1. `fork_session` = independent branches from shared baseline.
+2. Starting fresh with injected summary > resuming with stale results.
+3. When resuming, inform agent about specific file changes.
+4. Use `--resume` with session names for named investigations.
 
 ---
 
