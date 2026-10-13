@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCAR-F Exam Highlights — Must-Know Points</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+        h1 { color: #58a6ff; margin-bottom: 0.25rem; }
+        .subtitle { color: #8b949e; margin-bottom: 1.5rem; }
+        .facts { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; font-size: 0.95rem; }
+        .facts b { color: #fff; }
+        h2 { color: #58a6ff; margin: 2rem 0 0.75rem; font-size: 1.25rem; }
+        h2 .wt { color: #8b949e; font-size: 0.85rem; font-weight: normal; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 0.75rem; }
+        .card.red { border-color: #da3633; }
+        ul { padding-left: 1.25rem; }
+        li { margin-bottom: 0.35rem; }
+        code { background: #21262d; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.87em; color: #79c0ff; }
+        .trap { color: #ffa657; }
+        .key { color: #7ee787; }
+        table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9rem; }
+        th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid #30363d; vertical-align: top; }
+        th { color: #8b949e; font-weight: 600; }
+        .back { display: inline-block; margin: 2rem 0.5rem 0 0; color: #58a6ff; text-decoration: none; }
+        .back:hover { text-decoration: underline; }
+        .toc a { color: #58a6ff; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+        .toc a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ CCAR-F Exam Highlights</h1>
+        <p class="subtitle">Must-know points only — distilled from the full study guide. Aligned to Exam Guide v1.0 (July 2026).</p>
+
+        <div class="facts">
+            <b>60</b> questions · <b>120</b> minutes (2 min/question) · pass <b>720/1000</b> · <b>$125</b> ·
+            Pearson VUE (online or test centre) · valid <b>12 months</b> ·
+            weights D1 <b>27%</b> · D2 <b>18%</b> · D3 <b>20%</b> · D4 <b>20%</b> · D5 <b>15%</b>
+        </div>
+
+        <div class="toc">
+            <a href="#d1">D1 Agentic</a><a href="#d2">D2 Tools/MCP</a><a href="#d3">D3 Claude Code</a><a href="#d4">D4 Prompts</a><a href="#d5">D5 Context</a><a href="#traps">Top Traps</a>
+        </div>
+
+        <h2 id="d1">D1 · Agentic Architecture &amp; Orchestration <span class="wt">27%</span></h2>
+        <div class="card">
+            <ul>
+                <li><span class="key">Loop:</span> <code>stop_reason == "end_turn"</code> = done, <code>"tool_use"</code> = continue. <code>MAX_ITERATIONS</code> is a safety valve only. Never parse "I'm done" text, never cap-as-control. Append assistant msg FIRST, tool results SECOND (as <code>user</code>).</li>
+                <li><span class="key">Errors:</span> <code>transient | validation | business | permission</code> — only <code>transient</code> is retryable. Empty search result = valid data, never an error.</li>
+                <li><span class="key">Hooks &gt; prompts:</span> "must always / guaranteed / compliance" → hooks (deterministic). PreToolUse (<code>permissionDecision</code>: allow/deny/ask/defer) blocks BEFORE; PostToolUse (<code>updatedToolOutput</code>) normalises AFTER — it can never block.</li>
+                <li>Patterns: Sequential (needs prior output), Parallel (independent), Pipeline (stages), Dynamic Adaptive (unknown structure), Hub-and-Spoke (coordinator + specialists).</li>
+                <li>Subagents: no shared memory — pass context explicitly. Coordinator needs <code>"Task"</code> in <code>allowedTools</code>. Multiple Task calls in one response = parallel. Scope each agent to 4–5 tools, not 18.</li>
+                <li>Handoff format: Customer ID → factual Summary → Root cause → Recommended action. Escalate: explicit human request, policy gap, no progress. Self-reported confidence &amp; sentiment are <span class="trap">not</span> triggers.</li>
+                <li>Stale context (repeats/contradicts/ignores) → fresh start + summary injection, not more context.</li>
+            </ul>
+        </div>
+
+        <h2 id="d2">D2 · Tool Design &amp; MCP <span class="wt">18%</span></h2>
+        <div class="card">
+            <ul>
+                <li><span class="key">Descriptions drive selection</span> — WHAT / WHEN / WHAT-NOT / WHAT-RETURNED. Misselection? Small lookalike set → sharpen descriptions; different jobs → split by role; one-job variants → consolidate. Few-shot is <span class="trap">not</span> a fix.</li>
+                <li><code>tool_choice</code>: <code>auto</code> (default, may answer text) · <code>any</code> (must call ≥1, model picks) · forced <code>{type:"tool", name}</code> (one exact schema).</li>
+                <li>MCP: Host ⊃ Client ↔ Server · JSON-RPC 2.0 over stdio/streamable HTTP · servers never talk directly.</li>
+                <li><code>.mcp.json</code> = team-shared (commit). <code>~/.claude.json</code> = personal. Remote entry needs <code>"type":"http"</code> + url. Secrets via <code>${VAR}</code>, paths via <code>${VAR:-default}</code>.</li>
+                <li>Community MCP servers first; custom builds only for team-specific needs. Sparse MCP descriptions lose to built-ins (e.g. Grep) — enhance them.</li>
+                <li>Resources = upfront catalogues (server lists, client attaches). Tools = act. Built-ins: Grep = content, Glob = paths, Read = known file, Edit fail → Read + Write fallback.</li>
+            </ul>
+        </div>
+
+        <h2 id="d3">D3 · Claude Code Config &amp; Workflows <span class="wt">20%</span></h2>
+        <div class="card">
+            <ul>
+                <li><span class="key">CLAUDE.md files concatenate — nothing overrides.</span> "Specific wins" is always a distractor. Must-hold rules → <code>settings.json</code> or hooks. New teammate missing config → it lives in someone's <code>~/.claude/CLAUDE.md</code>.</li>
+                <li><code>settings.json</code> chain: managed policy &gt; local &gt; project &gt; user.</li>
+                <li>Modular: <code>@./path/file.md</code> inlines (there is <span class="trap">no</span> <code>@import</code> keyword). Path-scoped rules → <code>.claude/rules/</code> + <code>paths:</code> frontmatter.</li>
+                <li>Skills = directory + <code>SKILL.md</code> (+ frontmatter, auto-invoke). Commands = flat <code>.md</code> in <code>.claude/commands/</code> (+ <code>$ARGUMENTS</code>). Project-level = shared; <code>~</code>-level = personal.</li>
+                <li>CLI: <code>-p</code> non-interactive CI · <code>--output-format json</code> + <code>--json-schema</code> (→ <code>structured_output</code>) · <code>--bare</code> skips hooks/skills/MCP/memory · <code>-c</code>/<code>-r</code> resume · <code>--max-turns</code> · <code>--append-system-prompt</code> keeps defaults, <code>--system-prompt</code> replaces them.</li>
+                <li>Plan mode for complex/multi-approach tasks. Dedup CI reviews via prior findings. Never review code in the session that wrote it.</li>
+            </ul>
+        </div>
+
+        <h2 id="d4">D4 · Prompt Engineering &amp; Structured Output <span class="wt">20%</span></h2>
+        <div class="card">
+            <ul>
+                <li><span class="key">Guaranteed schema = forced tool_choice</span> (+ <code>any</code> when doc type unknown). Prompt-based JSON is prototyping only.</li>
+                <li>Schemas kill <span class="key">syntax</span> errors, never <span class="trap">semantic</span> ones (wrong field, rows not summing). Missing data + required field = fabrication → use <code>{"type":["string","null"]}</code> and drop from <code>required</code>. (<code>nullable:true</code> is OpenAPI, wrong.)</li>
+                <li>Retry = original prompt + failed output + specific error. Never bare "try again". &gt;2 failures → escalate. Retries can't fix data absent from source.</li>
+                <li>Few-shot: 2–4 with Input → Reasoning → Output; cover edge cases + SKIP examples; system-prompt placement earns caching.</li>
+                <li>Batch API: 50% cheaper, up to 24h — throughput, not speed. Never real-time/user-facing/blocking. <code>custom_id</code> correlates responses.</li>
+                <li>Chaining (extract → validate → format) is keyed as D1 fixed pipeline. Per-file passes + integration pass beat one giant review (attention dilution).</li>
+            </ul>
+        </div>
+
+        <h2 id="d5">D5 · Context Management &amp; Reliability <span class="wt">15%</span></h2>
+        <div class="card">
+            <ul>
+                <li><span class="key">Never progressively summarise</span> — copy persistent fact blocks verbatim. Scratchpad files (disk) survive any context reset; conversation history doesn't.</li>
+                <li>API is stateless — every call carries full history (why windows fill). "Lost in the middle": put critical content at edges.</li>
+                <li>Access failure (401/timeout/429) → retry/escalate. Valid empty (0 results) → accept, it IS the answer.</li>
+                <li>Aggregate 95% hides per-type 60% → stratified validation, per-type monitoring. Inline citations die in synthesis — use structured claim–source mappings; conflicting sources get annotated + dated, never averaged.</li>
+                <li>Policy GAP (silent) → escalate. Policy VIOLATION (forbids) → refuse with explanation. Multiple matches → ask for identifiers.</li>
+                <li>Error context = failure type + what was attempted + partial results + POTENTIAL alternatives.</li>
+            </ul>
+        </div>
+
+        <h2 id="traps">Top Exam Traps</h2>
+        <div class="card red">
+            <table>
+                <tr><th>Trap</th><th>Truth</th></tr>
+                <tr><td>Raise iteration cap to fix early exit</td><td class="trap">Fix the <code>stop_reason</code> check</td></tr>
+                <tr><td>System prompt guarantees compliance</td><td class="trap">Probabilistic — use hooks</td></tr>
+                <tr><td>Specific CLAUDE.md wins conflicts</td><td class="trap">Concatenated; conflicts arbitrary</td></tr>
+                <tr><td><code>@import</code> in CLAUDE.md</td><td class="trap">No such keyword — <code>@path</code></td></tr>
+                <tr><td><code>internal</code> error category</td><td class="trap">It's <code>business</code></td></tr>
+                <tr><td>PostToolUse to block actions</td><td class="trap">Too late — tool already ran</td></tr>
+                <tr><td>Few-shot fixes misselection</td><td class="trap">Not sanctioned — fix descriptions/distribution</td></tr>
+                <tr><td>Required fields stop fabrication</td><td class="trap">They cause it — use nullable</td></tr>
+                <tr><td>Batch API for speed / blocking checks</td><td class="trap">Cost only — use synchronous</td></tr>
+                <tr><td>Same-session self-review</td><td class="trap">Biased — separate instance</td></tr>
+                <tr><td>Summarise to save context</td><td class="trap">Loses detail — fact blocks/scratchpad</td></tr>
+                <tr><td>95% overall = reliable</td><td class="trap">Check per-type accuracy</td></tr>
+                <tr><td>Custom MCP server for Jira</td><td class="trap">Community servers first</td></tr>
+                <tr><td>Team config in <code>~/.claude.json</code></td><td class="trap">Personal only — use <code>.mcp.json</code></td></tr>
+            </table>
+        </div>
+
+        <a href="index.html" class="back">← Back to study guide</a>
+        <a href="LEARNING_NOTES.md" class="back">Full notes (LEARNING_NOTES.md)</a>
+    </div>
+</body>
+</html>
