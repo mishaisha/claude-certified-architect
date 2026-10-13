@@ -1,5 +1,7 @@
-# CCA-F Practice Exam — 60 Questions, all 5 domains
+# CCAR-F Practice Exam — 60 Questions, all 5 domains
 # Run: python practice_exam.py
+# Aligned to the official Exam Guide v1.0 (July 2026) via claudecertificationguide.com.
+# Domain weights: D1 27% | D2 18% | D3 20% | D4 20% | D5 15% (approx).
 
 import random
 import time
@@ -12,6 +14,9 @@ DOMAINS = {
     4: "Prompt Engineering & Structured Output",
     5: "Context Management & Reliability",
 }
+
+# Official exam weights (Exam Guide v1.0) — shown in results for comparison.
+WEIGHTS = {1: 27, 2: 18, 3: 20, 4: 20, 5: 15}
 
 QUESTIONS: List[Dict] = [
     # ═══════════════════════════════════════════════
@@ -38,10 +43,10 @@ QUESTIONS: List[Dict] = [
             "A. permission \u2014 access may be restricted during high load",
             "B. validation \u2014 the query parameters were probably wrong",
             "C. transient \u2014 infrastructure hiccup, retryable after a delay",
-            "D. internal \u2014 unexpected server error, surface to human",
+            "D. business \u2014 policy violation, take an alternative path",
         ],
         "answer": "C",
-        "explanation": "Timeouts are transient errors \u2014 infrastructure issues that may resolve on retry. The isRetryable flag should be True with an optional retryAfterMs hint.",
+        "explanation": "Timeouts are transient errors \u2014 infrastructure issues that may resolve on retry (isRetryable True, resend as-is). The four exam categories are transient | validation | business | permission; only transient is retryable.",
     },
     {
         "domain": 1,
@@ -50,7 +55,7 @@ QUESTIONS: List[Dict] = [
             "A. By importing the subagent Python module directly",
             "B. Via the built-in Task tool, with allowedTools including 'Task'",
             "C. By sending HTTP requests to subagent API endpoints",
-            "D. Via the message batches API for parallel execution",
+            "D. Via the Batch API for parallel execution",
         ],
         "answer": "B",
         "explanation": "The Task tool is the mechanism for spawning subagents. The coordinator must have 'Task' in its allowedTools. Subagents are defined via AgentDefinition with description, system prompt, and tool restrictions.",
@@ -87,7 +92,7 @@ QUESTIONS: List[Dict] = [
         "options": [
             "A. Use three sequential Task tool calls across separate turns",
             "B. Emit multiple Task tool calls in a single coordinator response",
-            "C. Use the Message Batches API to run them in parallel",
+            "C. Use the Batch API to run them in parallel",
             "D. Fork the session three times and run each subagent independently",
         ],
         "answer": "B",
@@ -179,6 +184,32 @@ QUESTIONS: List[Dict] = [
         "answer": "B",
         "explanation": "Starting fresh with injected summaries is more reliable when prior tool results are stale. Use --resume when prior context is mostly still valid.",
     },
+    {
+        "domain": 1,
+        "scenario": "An agent cannot complete a customer request and must hand the case to a human support specialist.",
+        "question": "What must the structured handoff include?",
+        "options": [
+            "A. A generic error message and the full conversation transcript",
+            "B. Customer ID, factual summary of what happened, root cause, and recommended action",
+            "C. The agent's confidence score and the customer's sentiment rating",
+            "D. Only the recommended action \u2014 the human can re-investigate the rest",
+        ],
+        "answer": "B",
+        "explanation": "The exam-tested handoff format is: Customer ID (who), Summary (what, factual), Root cause (why), Recommended action (what next). Never silently fail with a generic error. Self-reported confidence and sentiment are unreliable and do not belong in the handoff.",
+    },
+    {
+        "domain": 1,
+        "scenario": "A team wants the full session transcript archived to a log every time Claude Code compacts the conversation, before the summary discards detail.",
+        "question": "Which hook mechanism supports this?",
+        "options": [
+            "A. A PostToolUse hook on the compact tool",
+            "B. A PreCompact hook \u2014 it receives the transcript path and trigger (manual matcher for /compact, auto for the context window), and exit code 2 blocks compaction",
+            "C. A PreToolUse hook denying all tool calls during compaction",
+            "D. A system-prompt instruction to save transcripts before compacting",
+        ],
+        "answer": "B",
+        "explanation": "PreCompact fires immediately before compaction with the transcript path, trigger, and custom /compact instructions, so it can archive detail first. Same pattern as tool hooks: a Pre event can inspect and block (exit code 2), a Post event only observes. Prompt instructions are probabilistic and cannot guarantee archival.",
+    },
     # ═══════════════════════════════════════════════
     # DOMAIN 2: Tool Design & MCP Integration
     # ═══════════════════════════════════════════════
@@ -196,28 +227,16 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 2,
-        "scenario": "A developer has two tools: analyze_content and analyze_document with near-identical descriptions. Claude frequently calls the wrong one.",
-        "question": "What is the best fix?",
+        "scenario": "Claude keeps calling the wrong tool. The team must diagnose before fixing.",
+        "question": "How does the correct remedy depend on the diagnosis?",
         "options": [
-            "A. Remove one of the tools",
-            "B. Rename and rewrite descriptions to clearly differentiate purpose, expected inputs, and when to use each",
-            "C. Change the order of tools in the array",
-            "D. Add more detailed input schemas",
+            "A. Few lookalike tools in a small set \u2014 sharpen the descriptions; different jobs across many tools \u2014 split by role into focused agents; variations on one job sharing a shape \u2014 consolidate into one parameterised tool",
+            "B. Always rewrite all tool descriptions first, regardless of toolkit size",
+            "C. Always add few-shot examples showing correct tool selection",
+            "D. Always split into more agents until each agent has exactly one tool",
         ],
-        "answer": "B",
-        "explanation": "Ambiguous or overlapping tool descriptions cause misrouting. Rename tools and update descriptions to eliminate functional overlap. Consider splitting generic tools into purpose-specific tools.",
-    },
-    {
-        "domain": 2,
-        "question": "What does the MCP isError flag communicate?",
-        "options": [
-            "A. That the tool is deprecated",
-            "B. That a tool call result indicates a failure, enabling structured error handling",
-            "C. That the MCP server connection failed",
-            "D. That the tool input schema is invalid",
-        ],
-        "answer": "B",
-        "explanation": "The isError flag in MCP tool responses communicates that a tool call failed. It enables the agent to distinguish between successful results and errors, supporting structured error handling.",
+        "answer": "A",
+        "explanation": "Count the tools before picking the remedy. Descriptions are the first fix only when the toolkit is already workable (~4-5 tools); past that, selection degrades on decision complexity alone. Few-shot examples are NOT a sanctioned remedy for misselection.",
     },
     {
         "domain": 2,
@@ -230,7 +249,7 @@ QUESTIONS: List[Dict] = [
             "D. The tool will be automatically disabled",
         ],
         "answer": "B",
-        "explanation": "Uniform error responses prevent the agent from distinguishing between retryable errors (timeouts), non-retryable errors (invalid input that should self-correct), and permission errors (should escalate).",
+        "explanation": "Uniform errors hide the category the agent needs: transient (retry as-is, isRetryable true), validation (correct input, new call), business (alternative path), permission (escalate). Structured metadata (errorCategory, isRetryable, description) rides inside the result content \u2014 the MCP envelope itself only defines content, structuredContent and isError. 'Not found' is deliberately absent: an empty search result is valid data, not an error.",
     },
     {
         "domain": 2,
@@ -279,7 +298,7 @@ QUESTIONS: List[Dict] = [
             "D. To provide authentication credentials to MCP servers",
         ],
         "answer": "B",
-        "explanation": "MCP resources expose content catalogs like issue summaries, documentation hierarchies, or database schemas. This gives agents visibility into available data without requiring exploratory tool calls.",
+        "explanation": "MCP resources expose content catalogs like issue summaries, documentation hierarchies, or database schemas \u2014 no list_tables + describe_table per table. Resources are application-controlled: the server lists them but the client decides when to attach one (Claude Code via @server:resource). Resources show what data is available; tools let the agent act on it.",
     },
     {
         "domain": 2,
@@ -307,16 +326,16 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 2,
-        "scenario": "A synthesis agent has web_search, read_document, and analyze_data tools \u2014 but it does not need web_search because the coordinator handles all web research. The agent sometimes attempts web searches anyway.",
-        "question": "What is the best solution?",
+        "scenario": "Every invoice must be extracted into one exact schema via an extract_invoice tool, with no variation and no text responses.",
+        "question": "Which tool_choice mode guarantees this?",
         "options": [
-            "A. Add a stronger prompt telling the agent not to search the web",
-            "B. Remove the web_search tool from this agent's tool set \u2014 restrict tools to those relevant to its role",
-            "C. Set tool_choice to force a specific tool",
-            "D. Add error handling to web_search",
+            "A. tool_choice: 'auto' \u2014 the model will learn to prefer extract_invoice",
+            "B. tool_choice: 'any' \u2014 a tool call is guaranteed and the model picks extract_invoice",
+            "C. Forced tool_choice: { type: 'tool', name: 'extract_invoice' } \u2014 the specific tool must be called every time",
+            "D. Omitting tool_choice \u2014 fewer constraints mean more reliable output",
         ],
-        "answer": "B",
-        "explanation": "Agents with tools outside their specialization tend to misuse them. Restrict each subagent's tool set to those relevant to its role.",
+        "answer": "C",
+        "explanation": "Forced tool_choice guarantees one specific structure every time. 'any' guarantees a tool call but lets the model choose which \u2014 correct when the document type is unknown and several schemas could apply. 'auto' (the agentic-loop default) lets the model answer with text. Scope agents to 4-5 role-focused tools so selection stays reliable.",
     },
     # ═══════════════════════════════════════════════
     # DOMAIN 3: Claude Code Configuration & Workflows
@@ -335,15 +354,15 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 3,
-        "question": "What is the @import syntax used for in CLAUDE.md files?",
+        "question": "How do you reference an external standards file from a project CLAUDE.md to keep it modular?",
         "options": [
-            "A. Importing Python modules",
-            "B. Referencing external files to keep CLAUDE.md modular",
-            "C. Importing MCP server configurations",
-            "D. Importing tool definitions from other projects",
+            "A. With an @import keyword, e.g. @import ./standards/naming.md",
+            "B. With @ followed by a path on its own line, e.g. @./standards/naming.md \u2014 there is no @import keyword",
+            "C. By listing the file under an imports: key in YAML frontmatter",
+            "D. By adding the file to .claude/rules/ with a paths: pattern",
         ],
         "answer": "B",
-        "explanation": "@import allows CLAUDE.md files to reference external files, keeping configuration modular. For example, importing specific standards files relevant to each package.",
+        "explanation": "Modular CLAUDE.md files use @ plus a path inlined at load time. There is no @import keyword. Each @<path> line is expanded inline \u2014 it organises source files but does not reduce per-session context; use .claude/rules/ with paths: frontmatter for conditional loading.",
     },
     {
         "domain": 3,
@@ -431,6 +450,44 @@ QUESTIONS: List[Dict] = [
         "answer": "B",
         "explanation": "Project-scoped commands in .claude/commands/ are shared via version control. User-scoped commands in ~/.claude/commands/ are personal and not shared.",
     },
+    {
+        "domain": 3,
+        "scenario": "A project CLAUDE.md says 'use tabs' and a directory CLAUDE.md says 'use spaces'. A developer asks which rule wins.",
+        "question": "What is the correct answer?",
+        "options": [
+            "A. The directory-level rule wins \u2014 more specific scope overrides",
+            "B. The project-level rule wins \u2014 broader scope takes precedence",
+            "C. Neither is guaranteed \u2014 CLAUDE.md files are concatenated into context, not overridden, and contradictions may resolve arbitrarily; move must-hold rules to settings.json or a hook",
+            "D. The user-level ~/.claude/CLAUDE.md breaks the tie",
+        ],
+        "answer": "C",
+        "explanation": "CLAUDE.md has a documented load order (broadest to most specific) but NO precedence chain \u2014 every applicable file loads together. 'More specific wins' and 'user overrides project' are classic distractors. settings.json is the strict chain (managed policy > local > project > user); hooks fire deterministically at lifecycle events.",
+    },
+    {
+        "domain": 3,
+        "scenario": "A CI job needs extra review instructions for one run without losing Claude Code's default tool guidance and safety behaviour.",
+        "question": "Which flag is correct?",
+        "options": [
+            "A. --system-prompt \"<text>\" \u2014 replaces the whole default prompt",
+            "B. --append-system-prompt \"<text>\" \u2014 adds to the default prompt and keeps tool guidance and safety instructions",
+            "C. --bare \u2014 adds instructions while skipping hooks and memory",
+            "D. --max-turns 1 \u2014 constrains the prompt to a single turn",
+        ],
+        "answer": "B",
+        "explanation": "--append-system-prompt adds and keeps the defaults; --system-prompt replaces everything (you then own all safety/tool guidance). --bare is the opposite need: a fast scripted run skipping hooks, skills, plugins, MCP, memory and CLAUDE.md. The *-file variants load the same text from a file.",
+    },
+    {
+        "domain": 3,
+        "question": "How do project slash commands differ from project skills?",
+        "options": [
+            "A. A command is a single flat .md file in .claude/commands/ (a prompt template, $ARGUMENTS supported); a skill is a directory with a SKILL.md entrypoint plus supporting files and frontmatter",
+            "B. A flat .md file placed directly inside .claude/skills/ creates a command",
+            "C. Commands run in forked context; skills run in the main conversation",
+            "D. There is no difference \u2014 the systems were merged into one",
+        ],
+        "answer": "A",
+        "explanation": "Commands and skills were merged so both surface as /commands, but the shapes differ: command = flat .md prompt template; skill = directory with SKILL.md, supporting files, frontmatter (e.g. allowed-tools, context: fork) and automatic invocation when relevant. A flat file inside .claude/skills/ does NOT create a command.",
+    },
     # ═══════════════════════════════════════════════
     # DOMAIN 4: Prompt Engineering & Structured Output
     # ═══════════════════════════════════════════════
@@ -501,7 +558,7 @@ QUESTIONS: List[Dict] = [
         "options": [
             "A. When the schema is too complex",
             "B. When the required information is simply absent from the source document",
-            "C. When using the Message Batches API",
+            "C. When using the Batch API",
             "D. When there are too many optional fields",
         ],
         "answer": "B",
@@ -509,7 +566,7 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 4,
-        "question": "What is the primary benefit of the Message Batches API?",
+        "question": "What is the primary benefit of the Batch API (Message Batches API)?",
         "options": [
             "A. Lower latency than the synchronous API",
             "B. 50% cost savings with up to 24-hour processing window",
@@ -517,14 +574,14 @@ QUESTIONS: List[Dict] = [
             "D. Higher rate limits",
         ],
         "answer": "B",
-        "explanation": "The Message Batches API offers 50% cost savings with up to a 24-hour processing window. No guaranteed latency SLA \u2014 appropriate for non-blocking, latency-tolerant workloads.",
+        "explanation": "The Batch API offers 50% cost savings with up to a 24-hour processing window. No guaranteed latency SLA \u2014 appropriate for non-blocking, latency-tolerant workloads. Never for real-time or user-facing requests.",
     },
     {
         "domain": 4,
         "scenario": "A developer needs to run a pre-merge code review that must complete before the merge button is enabled.",
         "question": "Which API should they use?",
         "options": [
-            "A. Message Batches API \u2014 for cost savings",
+            "A. Batch API \u2014 for cost savings",
             "B. Synchronous API \u2014 for blocking, latency-sensitive workflows",
             "C. Either \u2014 both support blocking operations",
             "D. Streaming API \u2014 for real-time output",
@@ -534,7 +591,7 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 4,
-        "question": "When using the Message Batches API, how are individual requests correlated in the response?",
+        "question": "When using the Batch API, how are individual requests correlated in the response?",
         "options": [
             "A. By the order they were submitted",
             "B. Via custom_id fields",
@@ -555,6 +612,32 @@ QUESTIONS: List[Dict] = [
         ],
         "answer": "B",
         "explanation": "A model retains reasoning context from generation, making it less likely to question its own decisions. Independent review instances are more effective at catching subtle issues.",
+    },
+    {
+        "domain": 4,
+        "scenario": "An extraction schema marks contract_value as required, but half the source documents contain no contract value. The model keeps inventing plausible dollar amounts.",
+        "question": "What is the correct schema fix?",
+        "options": [
+            "A. Add more few-shot examples showing contract values",
+            "B. Make the field nullable with a union type {\"type\": [\"string\", \"null\"]} and leave it out of the parent object's required array, so the model may return null",
+            "C. Mark the field nullable: true in the input_schema",
+            "D. Add required: true on the property itself to strengthen the constraint",
+        ],
+        "answer": "B",
+        "explanation": "Required fields CAUSE fabrication when data is missing \u2014 give the model permission to return null. Note the syntax: nullable: true is OpenAPI, not JSON Schema, and required is an array on the parent object, never a per-property boolean. Schemas kill syntax errors, never semantic ones (wrong-field values, line items not summing).",
+    },
+    {
+        "domain": 4,
+        "scenario": "Detailed prose instructions produce inconsistently formatted classifications. The team adds few-shot examples and quality jumps; they consider adding 10 more examples to push further.",
+        "question": "What should they do?",
+        "options": [
+            "A. Add all 10 \u2014 more examples always improve quality",
+            "B. Stop at 2-4 examples covering severity levels and edge cases with Input \u2192 Reasoning \u2192 Output; 0\u21922 has the largest impact and returns diminish after ~4",
+            "C. Move the examples out of the system prompt into every user message",
+            "D. Replace the examples with stricter prose rules",
+        ],
+        "answer": "B",
+        "explanation": "Few-shot is the most effective fix when instructions alone fail, but 2-4 is the sweet spot \u2014 include reasoning, cover edge cases, show SKIP alongside REPORT to cut false positives. Keep examples in the system prompt for prompt-caching benefits; per-request variation belongs in the user message.",
     },
     # ═══════════════════════════════════════════════
     # DOMAIN 5: Context Management & Reliability
@@ -662,30 +745,6 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 5,
-        "question": "How should extractions be routed to human review?",
-        "options": [
-            "A. Send all extractions to human review",
-            "B. Use field-level confidence scores calibrated on labeled validation sets; route low-confidence results to humans",
-            "C. Randomly sample 10% of extractions for review",
-            "D. Only send schema validation failures to humans",
-        ],
-        "answer": "B",
-        "explanation": "Models should output field-level confidence scores, calibrated using labeled validation sets. Route low-confidence or ambiguous results to human review.",
-    },
-    {
-        "domain": 5,
-        "question": "How should conflicting statistics from credible sources be handled in synthesis?",
-        "options": [
-            "A. Arbitrarily select one value",
-            "B. Take the average of all conflicting values",
-            "C. Annotate conflicts with source attribution rather than arbitrarily selecting one value",
-            "D. Discard both and report 'data unavailable'",
-        ],
-        "answer": "C",
-        "explanation": "Conflicting statistics should be annotated with source attribution. The report should distinguish well-established findings from contested ones, preserving source characterizations.",
-    },
-    {
-        "domain": 5,
         "question": "Why is source attribution lost during multi-step summarization?",
         "options": [
             "A. The model intentionally removes citations to save tokens",
@@ -698,53 +757,16 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 5,
-        "question": "Two studies about the same topic report different results, but were conducted 5 years apart. How should this be handled?",
-        "options": [
-            "A. Flag it as a contradiction",
-            "B. Require publication dates in structured outputs to prevent temporal differences being misinterpreted as contradictions",
-            "C. Use only the most recent study",
-            "D. Average the results",
-        ],
-        "answer": "B",
-        "explanation": "Requiring publication or collection dates enables correct temporal interpretation. Temporal differences should not be misinterpreted as contradictions.",
-    },
-    {
-        "domain": 5,
-        "scenario": "A subagent exploring a large codebase produces verbose output. The main agent's context fills up with exploration output.",
-        "question": "What is the best approach?",
-        "options": [
-            "A. Increase the model's max_tokens",
-            "B. Delegate verbose exploration to subagents while the main agent coordinates; summarize findings between phases",
-            "C. Ask the subagent to be more concise",
-            "D. Use /compact to clear the context repeatedly",
-        ],
-        "answer": "B",
-        "explanation": "Delegate verbose exploration to subagents. Summarize key findings before spawning the next phase, injecting summaries into initial context.",
-    },
-    {
-        "domain": 5,
-        "scenario": "A multi-agent system crashes mid-workflow. Agents need to resume from where they left off.",
+        "scenario": "A long-running exploration may exceed the context window, and intermediate findings must survive a context reset or crash.",
         "question": "What design pattern supports this recovery?",
         "options": [
             "A. Re-run all agents from the beginning",
-            "B. Structured agent state exports (manifests) that the coordinator loads on resume",
-            "C. Checkpoint the entire virtual machine",
-            "D. Log all agent outputs to a file for manual review",
+            "B. Scratchpad files \u2014 write findings to disk as discovered; at context boundaries read the scratchpad back to restore state",
+            "C. Ask the model to progressively summarise the conversation as it grows",
+            "D. Log all agent outputs to a file for manual review only",
         ],
         "answer": "B",
-        "explanation": "Design crash recovery using structured agent state exports (manifests). Each agent exports state to a known location; the coordinator loads a manifest on resume.",
-    },
-    {
-        "domain": 5,
-        "question": "What command reduces context usage during extended Claude Code exploration sessions?",
-        "options": [
-            "A. /clear",
-            "B. /compact",
-            "C. /reset",
-            "D. /compress",
-        ],
-        "answer": "B",
-        "explanation": "/compact reduces context usage during extended exploration sessions when context fills with verbose discovery output, summarizing while preserving key info.",
+        "explanation": "Scratchpads are external persistence (files on disk) \u2014 they survive any context reset, unlike conversation history. Progressive summarisation loses specifics (names, numbers, quotes); /compact summarises while project CLAUDE.md is re-read from disk, but nested CLAUDE.md files and path-scoped rules only return on next matching read.",
     },
     {
         "domain": 5,
@@ -757,18 +779,6 @@ QUESTIONS: List[Dict] = [
         ],
         "answer": "B",
         "explanation": "Multiple customer matches require clarification \u2014 request additional identifiers rather than selecting based on heuristics.",
-    },
-    {
-        "domain": 5,
-        "question": "What should synthesis output include regarding coverage quality?",
-        "options": [
-            "A. Only well-supported findings",
-            "B. Coverage annotations: which findings are well-supported vs which areas have gaps due to unavailable sources",
-            "C. A simple pass/fail for each topic",
-            "D. Only the coordinator's assessment",
-        ],
-        "answer": "B",
-        "explanation": "Coverage annotations enable the coordinator to make informed re-delegation decisions, knowing which topic areas have gaps.",
     },
 ]
 
@@ -790,7 +800,7 @@ def run_exam():
     domain_total: Dict[int, int] = {d: 0 for d in DOMAINS}
 
     print("=" * 66)
-    print("  CCA-F PRACTICE EXAM \u2014 Claude Certified Architect Foundations")
+    print("  CCAR-F PRACTICE EXAM \u2014 Claude Certified Architect (Foundations)")
     print(f"  {total} questions  |  120 minutes  |  Pass: 720/1000")
     print("=" * 66)
 
@@ -843,13 +853,13 @@ def run_exam():
     else:
         print(f"  STATUS:  \u2717 FAIL (<720) \u2014 keep studying!")
 
-    print(f"\n  Domain breakdown:")
+    print(f"\n  Domain breakdown (official exam weight in brackets):")
     for d in sorted(DOMAINS):
         c = domain_correct[d]
         t = domain_total[d]
         bar = "\u2588" * int((c / t) * 20) if t else ""
         pct = (c / t) * 100 if t else 0
-        print(f"    {d}. {DOMAINS[d][:50]:50s} {c:2d}/{t:2d} ({pct:3.0f}%)  {bar}")
+        print(f"    {d}. {DOMAINS[d][:42]:42s} {c:2d}/{t:2d} ({pct:3.0f}%) [wt {WEIGHTS[d]:2d}%]  {bar}")
     print()
 
 

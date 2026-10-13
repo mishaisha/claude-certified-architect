@@ -1,6 +1,16 @@
-# CCA-F Learning Notes
+# CCAR-F Learning Notes
 
-Study guide for Claude Certified Architect Foundations exam.
+Study guide for the Claude Certified Architect (Foundations) exam.
+Aligned to Exam Guide v1.0 (July 2026) via claudecertificationguide.com.
+
+## Official Exam Facts
+
+- 60 questions, 120 minutes (2 min/question pace), Pearson VUE (online proctored or test centre)
+- Weighted scoring out of 1000; pass mark 720. $125 USD. Credential valid 12 months.
+- Real exam requires an answer to every question before advancing.
+- Domain weights: D1 Agentic Architecture 27% | D2 Tool Design & MCP 18% |
+  D3 Claude Code 20% | D4 Prompt Engineering 20% | D5 Context Management 15%
+- 30 task statements total (7 + 5 + 6 + 6 + 6 across the five domains).
 
 ## Learning Sequence
 
@@ -112,12 +122,18 @@ messages.append({"role": "user", "content": tool_results})
 
 | Category | Example | isRetryable | Action |
 |---|---|---|---|
-| `transient` | TimeoutError | `True` | Retry after delay |
-| `permission` | PermissionError | `False` | Escalate |
-| `validation` | ValueError | `False` | Model self-corrects |
-| `internal` | Exception | `False` | Surface to human |
+| `transient` | TimeoutError | `True` | Resend as-is after delay |
+| `permission` | PermissionError | `False` | Escalate to someone with access |
+| `validation` | ValueError | `False` | Model corrects input, new call |
+| `business` | Policy violation | `False` | Take an alternative path |
 
-**Memory trick:** T-P-V-I → "Time Passes, Violent Internal"
+**Memory trick:** T-P-V-B → "Transient Passes, Violations Blocked"
+
+Official guide (Exam Guide v1.0): only `transient` is retryable — the flag asks
+whether resending *this* call can work. "Not found" is deliberately NOT a
+category: a search returning 0 results is a valid empty result, not an error.
+The metadata rides inside the result `content`; the MCP envelope itself only
+defines `content`, `structuredContent` and `isError`.
 
 ### Concept 5: Tool Result Shape
 
@@ -182,7 +198,7 @@ User: "Research tool-use loop"
 ### Key Exam Facts
 1. Tool descriptions drive selection — write them carefully
 2. Two-tool pattern: search first → fetch second
-3. Same error handling as Step 2 (transient/permission/validation/internal)
+3. Same error handling as Step 2 (transient/permission/validation/business)
 4. Same loop pattern — exit on `end_turn`, safety valve on `MAX_ITERATIONS`
 
 ---
@@ -731,3 +747,139 @@ def update_verification_state(tool_name, raw_result):
 | 12 | few_shot_examples.py | 2-4 examples. Input→Reasoning→Output. Ambiguous cases |
 | 13 | ci_pipeline.sh | -p flag, --output-format json, dedup prior findings |
 | 14 | capstone_project.py | Everything: loop+coordinator+hooks+escalation |
+| — | mcp_integration.py | Host⊃Client↔Server, .mcp.json vs ~/.claude.json, ${VAR}, resources |
+
+---
+
+## APPENDIX: Official-Guide Alignment (Exam Guide v1.0)
+
+Condensed from claudecertificationguide.com quick-reference sheets.
+These are the exact wordings and distinctions the exam keys on.
+
+### Corrections to older notes
+
+1. Error categories are `transient | validation | business | permission`
+   — NOT `internal`. Only `transient` is retryable.
+2. There is NO `@import` keyword — modular CLAUDE.md uses `@` + path.
+3. The bulk API is called **Batch API** on the exam (50% cheaper, up to 24h).
+4. Prompt chaining is keyed as Domain 1 (TS 1.6, fixed vs dynamic), not Domain 4.
+
+### Domain 1 extras (27%)
+
+- Exam `stop_reason` values: `end_turn` (done) + `tool_use` (continue).
+  Production adds `pause_turn`, `max_tokens`, `stop_sequence`, `refusal`,
+  `model_context_window_exceeded` — handle them in real loops.
+- Five orchestration patterns: Sequential, Parallel, Pipeline,
+  Dynamic Adaptive, Hub-and-Spoke (coordinator + specialists).
+- AgentDefinition = description + system prompt + `tools` field (small,
+  role-focused: 4–5, not 18). Coordinator needs `"Task"` (aka `"Agent"`)
+  in `allowedTools` or it cannot spawn subagents. No shared memory, ever.
+- Structured handoff: Customer ID → factual Summary → Root cause →
+  Recommended action. Never silently fail.
+- PreToolUse returns `permissionDecision` (allow/deny/ask/defer) +
+  optional `updatedInput`. PostToolUse returns `updatedToolOutput`.
+  PostToolUse can NEVER block — the tool already ran.
+- PreCompact (matchers `manual`/`auto`) archives transcripts before
+  compaction; exit code 2 blocks it.
+- Decision rule: "must always / guaranteed / compliance / audit" → hooks.
+  Prompts are probabilistic, hooks deterministic.
+
+### Domain 2 extras (18%)
+
+- Misselection diagnosis: small lookalike set → sharpen descriptions (2.1);
+  different jobs → split by role (2.3); one-job variants → consolidate
+  into one parameterised tool (2.3). Few-shot is NOT a sanctioned fix.
+- MCP: Host ⊃ Client ↔ Server, JSON-RPC 2.0 over stdio/streamable HTTP.
+  All tools discovered at connect; servers never talk directly.
+- `.mcp.json` (project, committed) vs `~/.claude.json` (personal).
+  Remote entry needs `"type": "http"` + url; local needs command + args.
+- `${VAR}` for secrets, `${VAR:-default}` for paths with fallback.
+- Community MCP servers first — custom builds only for team-specific needs.
+- `tool_choice`: `auto` (default, may answer text), `any` (must call ≥1,
+  model picks), `tool` forced (one specific schema every time).
+
+### Domain 3 extras (20%)
+
+- CLAUDE.md files are CONCATENATED, not overridden. Load order broadest →
+  most specific, but contradictions resolve arbitrarily. "Specific wins" is
+  always a distractor. Must-hold rules → `settings.json` or hooks.
+- `settings.json` strict chain: managed policy > local > project > user.
+- `.claude/rules/` with `paths:` frontmatter loads conditionally (glob).
+  Without frontmatter it loads at launch like project CLAUDE.md.
+- Exam answer for "which files loaded": `/memory`. At your keyboard also
+  check `/context` → Memory files. Neither command LOADS anything.
+- Project CLAUDE.md is re-read after `/compact`; nested CLAUDE.md files
+  and path-scoped rules return on next matching read.
+- Skills = directory + SKILL.md (+ frontmatter, auto-invoke).
+  Commands = flat `.md` in `.claude/commands/` (+ `$ARGUMENTS`).
+- CLI: `-p` non-interactive; `--output-format json` + `--json-schema`
+  (lands in `structured_output`); `--bare` skips hooks/skills/MCP/memory;
+  `-c`/`-r` resume; `--max-turns`; `--append-system-prompt` keeps defaults,
+  `--system-prompt` replaces them.
+- Never review code in the session that wrote it (reasoning bias).
+
+### Domain 4 extras (20%)
+
+- Nullable fields: `{"type": ["string", "null"]}` + omit from parent's
+  `required` array. `nullable: true` is OpenAPI, NOT JSON Schema.
+  Required-on-missing-data CAUSES fabrication.
+- Tool-use schemas kill SYNTAX errors, never SEMANTIC ones
+  (wrong field, rows not summing). Pydantic: parsing enforces schema,
+  custom validators enforce semantics; feed `ValidationError` into retry.
+- Retry-with-error-feedback = original prompt + failed output + specific
+  error. Never bare "try again". >2 failures → escalate.
+- Few-shot: 2–4 with Input → Reasoning → Output; system prompt placement
+  earns prompt-caching; 0→2 matters most.
+- Batch API: throughput/cost, NOT speed. Never real-time/user-facing.
+  `custom_id` correlates batch responses.
+- System prompt structure: role → rules → output format → calibration
+  examples. One prompt shapes every request (most cost-effective control).
+
+### Domain 5 extras (15%)
+
+- Progressive summarisation LOSES details — use persistent fact blocks
+  copied verbatim, not re-summarised.
+- Scratchpad files = external persistence surviving any context reset.
+- The API is stateless: every request carries its full history (why the
+  window fills). "Lost in the middle": edges beat middles — put critical
+  content at beginning/end.
+- Error context needs: failure type + what was attempted + partial results
+  + POTENTIAL alternatives (not a retry log).
+- Three escalation triggers: explicit human request, policy gap/exception,
+  no meaningful progress. Unreliable: sentiment, self-reported confidence
+  (but per-category classifier scores ARE valid triggers).
+- Policy GAP (silent) → escalate. Policy VIOLATION (forbids) → refuse
+  with the policy explanation. Multiple matches → ask for identifiers.
+- Stratified validation: aggregate 95% hides per-type 60%. Monitor
+  per-type rates; conflicting sources get annotated with provenance +
+  dates, never averaged or silently picked.
+
+### Master decision table (all domains)
+
+| Question says... | Answer |
+|---|---|
+| guaranteed / must always / enforce / compliance | Hooks, not prompts |
+| flexibility / adapt / unexpected | Model-driven decisions |
+| independent subtasks | Parallel orchestration |
+| needs previous output | Sequential / chaining |
+| unknown structure | Dynamic adaptive |
+| runaway agent | Iteration cap as safety net only |
+| share context between agents | Explicit passing, no shared memory |
+| wrong tool, small toolkit | Sharpen descriptions |
+| wrong tool, 20+ tools | Split by role / consolidate |
+| guaranteed schema, one structure | Forced `tool_choice` |
+| guaranteed schema, unknown doc type | `tool_choice: any` |
+| fabricates missing data | Nullable union + drop required |
+| validation failed | Original + failed + specific error |
+| bulk cheap / latency-tolerant | Batch API |
+| real-time / user-facing / blocking | Synchronous API, never Batch |
+| review own output | Separate instance |
+| details lost over time | Persistent fact blocks |
+| survive context reset | Scratchpad files |
+| high overall accuracy, user complaints | Stratified per-type validation |
+| sources disagree | Annotate both + dates |
+| team config | Project-level, version-controlled |
+| personal config | User-level (`~`) |
+| path-specific rules | `.claude/rules/` + `paths:` |
+| CI / non-interactive | `-p` + `--output-format json` |
+| keep defaults + extras | `--append-system-prompt` |

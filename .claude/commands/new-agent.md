@@ -37,7 +37,7 @@ Before writing anything, read both reference implementations so the new file mat
 These are enforced by `CLAUDE.md`:
 
 - **Model**: `claude-haiku-4-5` only. Do not bump.
-- **Error schema**: tool errors must use the four categories `transient | permission | validation | internal`. Match `agent.py:74-149` exactly.
+- **Error schema**: tool errors must use the four categories `transient | permission | validation | business`. Match `agent.py:74-149` exactly.
 - **Loop exit**: `stop_reason == "end_turn"` is the only valid primary exit. `MAX_ITERATIONS = 50` is a safety valve.
 - **Message order**: append the assistant message containing tool_use blocks BEFORE the tool_result user message. Never reverse.
 - **Mock data only** — `FAKE_DB` / `FAKE_ORDERS` style. Read `ANTHROPIC_API_KEY` from env via `anthropic.Anthropic()`. Never hardcode secrets.

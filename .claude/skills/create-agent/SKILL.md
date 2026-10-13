@@ -66,7 +66,7 @@ If compilation passes, report the file path and the example invocation. Do not r
 These are enforced — do not deviate without explicit user approval. See `reference.md` for the full list with rationale.
 
 1. **Model**: `claude-haiku-4-5` only.
-2. **Error schema**: tool errors must use the four categories `transient | permission | validation | internal` exactly as in `agent.py`.
+2. **Error schema**: tool errors must use the four categories `transient | permission | validation | business` exactly as in `agent.py`.
 3. **Loop exit**: `stop_reason == "end_turn"` is the only valid primary exit. `MAX_ITERATIONS` is a safety valve, not a stop condition.
 4. **Message order**: assistant message with `tool_use` blocks is appended BEFORE the `tool_result` user message. Never reverse this.
 5. **No real secrets**: mock data only. Read `ANTHROPIC_API_KEY` from env via `anthropic.Anthropic()` — never hardcode.

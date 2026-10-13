@@ -145,8 +145,8 @@ def handle_tool_call(tool_name: str, tool_id: str, tool_input: dict) -> dict:
     except Exception as e:
         return {"type": "tool_result", "tool_use_id": tool_id, "is_error": True,
                 "content": json.dumps({
-                    "errorCategory": "internal", "isRetryable": False,
-                    "description": f"Unexpected error in {tool_name}: {e}"})}
+                    "errorCategory": "business", "isRetryable": False,
+                    "description": f"Business rule violation in {tool_name}: {e}"})}
 
 
 # ─────────────────────────────────────────────

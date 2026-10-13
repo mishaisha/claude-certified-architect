@@ -32,6 +32,7 @@ Each file covers ONE topic. Study in this order — concepts build on each other
 | 04 | `inbuilt_tools.py` | Built-in tools | Grep, Glob, Read, Write, Edit + fallback pattern |
 | 05 | `tool_choice.py` | Tool choice + descriptions | tool_choice config, description design, misrouting prevention |
 | 06 | `developer_productivity.py` | Codebase exploration | Grep → Read → Grep → Read incremental discovery |
+| — | `mcp_integration.py` | MCP integration | Host⊃Client↔Server, .mcp.json scoping, env expansion, resources, build-vs-use (study after 06) |
 
 ### Domain 5: Context Management & Reliability
 
@@ -74,6 +75,7 @@ Each file covers ONE topic. Study in this order — concepts build on each other
 **Illustrative snippets** (don't run standalone — embedded code samples for teaching):
 - `inbuilt_tools.py` — Grep, Glob, Read, Write, Edit patterns
 - `tool_choice.py` — tool_choice config + description design
+- `mcp_integration.py` — MCP scoping, env expansion, resources, build-vs-use
 - `developer_productivity.py` — codebase exploration patterns
 - `dynamic_decomposition.py` — adaptive decomposition
 - `multi_agents.py` — coordinator pattern with Task tool
@@ -86,7 +88,7 @@ When editing snippet files, preserve their pedagogical shape — comments and or
 ## Conventions
 
 1. **Model pinning**: all examples use `claude-haiku-4-5` deliberately (cost + speed for learners). Don't bump to Sonnet/Opus without asking.
-2. **Error categories**: tool errors must use the four-category schema from `agent.py` — `transient`, `permission`, `validation`, `internal`. New tools should follow the same pattern.
+2. **Error categories**: tool errors must use the four-category schema from `agent.py` — `transient`, `permission`, `validation`, `business` (exam guide v1.0; only `transient` is retryable). New tools should follow the same pattern.
 3. **Agentic loop exit**: `stop_reason == "end_turn"` is the only valid primary exit. `MAX_ITERATIONS` is a safety valve, not a stop condition.
 4. **No real secrets**: mock data only (see `FAKE_DB`, `FAKE_ORDERS` in `capstone_project.py`).
 

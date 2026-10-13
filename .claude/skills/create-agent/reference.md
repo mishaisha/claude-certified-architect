@@ -19,7 +19,7 @@ Every `handle_tool_call` must return a `tool_result` dict for both success AND e
 | `transient` | `TimeoutError` | `true` | `retryAfterMs` |
 | `permission` | `PermissionError` | `false` | — |
 | `validation` | `ValueError` | `false` | — |
-| `internal` | bare `Exception` | `false` | — |
+| `business` | bare `Exception` (policy/business-rule violation) | `false` | — |
 
 Each error response shape:
 
