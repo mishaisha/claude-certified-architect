@@ -62,19 +62,6 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 1,
-        "scenario": "A coordinator agent is tasked with researching 'renewable energy trends in Southeast Asia'. It creates three subagents: one for wind, one for solar, and one for policy. The synthesis report has significant gaps \u2014 entire sub-topics like hydroelectric, geothermal, and energy storage are missing.",
-        "question": "What is the most likely root cause?",
-        "options": [
-            "A. The subagents did not have enough context",
-            "B. The coordinator's task decomposition was too narrow, leaving uncovered subtopics",
-            "C. The synthesis agent was not powerful enough",
-            "D. The subagents ran in parallel instead of sequentially",
-        ],
-        "answer": "B",
-        "explanation": "Overly narrow task decomposition by the coordinator leads to incomplete coverage of broad research topics. The coordinator should partition the full scope across subagents to minimize gaps.",
-    },
-    {
-        "domain": 1,
         "question": "How should a coordinator pass findings from one subagent to another?",
         "options": [
             "A. Store results in a shared database that all agents access",
@@ -162,18 +149,6 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 1,
-        "question": "A developer resumes a Claude Code session with --resume after modifying several files. What should they do to ensure accurate re-analysis?",
-        "options": [
-            "A. Nothing \u2014 --resume automatically detects changes",
-            "B. Inform the session about specific file changes for targeted re-analysis",
-            "C. Delete the old session and start fresh",
-            "D. Run /compact to clear the old context",
-        ],
-        "answer": "B",
-        "explanation": "The agent should be informed about specific file changes when resuming after code modifications. This enables targeted re-analysis rather than requiring full re-exploration of unchanged areas.",
-    },
-    {
-        "domain": 1,
         "question": "When should a developer choose to start a new session with a structured summary rather than use --resume?",
         "options": [
             "A. When the prior context is mostly valid",
@@ -209,6 +184,32 @@ QUESTIONS: List[Dict] = [
         ],
         "answer": "B",
         "explanation": "PreCompact fires immediately before compaction with the transcript path, trigger, and custom /compact instructions, so it can archive detail first. Same pattern as tool hooks: a Pre event can inspect and block (exit code 2), a Post event only observes. Prompt instructions are probabilistic and cannot guarantee archival.",
+    },
+    {
+        "domain": 1,
+        "scenario": "An agent must analyse a large dataset under two competing hypotheses \u2014 statistical modelling vs machine learning \u2014 without either exploration polluting the other's context.",
+        "question": "Which session mechanism fits, and why?",
+        "options": [
+            "A. --resume \u2014 continue the same session twice, once per hypothesis",
+            "B. fork_session \u2014 branch two independent explorations from one shared baseline context",
+            "C. /compact between hypotheses \u2014 summarise the first before starting the second",
+            "D. A single longer session covering both hypotheses sequentially",
+        ],
+        "answer": "B",
+        "explanation": "fork_session branches divergent explorations from a shared baseline so each hypothesis gets clean context. Resume continues one line; compacting between them leaks the first hypothesis into the second; one long session cross-contaminates both.",
+    },
+    {
+        "domain": 1,
+        "scenario": "A moderation agent auto-removes posts. Review finds 3% of removed posts were legitimate, while clearly violating posts sometimes stay up for hours.",
+        "question": "What routing design fixes both failure modes?",
+        "options": [
+            "A. Escalate every borderline case to humans and auto-remove the rest",
+            "B. Tiered confidence routing \u2014 high-confidence violations actioned, high-confidence safe passed, uncertain cases to human review",
+            "C. Route by the agent's self-reported confidence score alone",
+            "D. Lower the removal threshold until nothing violating stays up",
+        ],
+        "answer": "B",
+        "explanation": "Tiered routing matches action to certainty: act where confident, escalate where uncertain. Self-reported confidence is poorly calibrated and not a valid trigger \u2014 but per-category classifier scores are. Blanket escalation or threshold-shifting fixes one failure mode by worsening the other.",
     },
     # ═══════════════════════════════════════════════
     # DOMAIN 2: Tool Design & MCP Integration
@@ -302,18 +303,6 @@ QUESTIONS: List[Dict] = [
     },
     {
         "domain": 2,
-        "question": "Which built-in tool should be used to find all callers of a function named 'calculateTotal' across a codebase?",
-        "options": [
-            "A. Glob \u2014 for file path pattern matching",
-            "B. Grep \u2014 for searching content within files",
-            "C. Read \u2014 for reading file contents",
-            "D. Edit \u2014 for targeted modifications",
-        ],
-        "answer": "B",
-        "explanation": "Grep searches content within files, making it ideal for finding function callers, error messages, or import statements. Glob is for file path pattern matching.",
-    },
-    {
-        "domain": 2,
         "question": "When Edit fails due to non-unique text matches, what is the correct fallback?",
         "options": [
             "A. Retry Edit with the same text \u2014 it might work the second time",
@@ -338,6 +327,32 @@ QUESTIONS: List[Dict] = [
         "explanation": "Forced tool_choice guarantees one specific structure every time. 'any' guarantees a tool call but lets the model choose which \u2014 correct when the document type is unknown and several schemas could apply. 'auto' (the agentic-loop default) lets the model answer with text. Scope agents to 4-5 role-focused tools so selection stays reliable.",
     },
     # ═══════════════════════════════════════════════
+    {
+        "domain": 2,
+        "scenario": "An 'InvalidStateTransition' error is logged somewhere in a large codebase. The developer does not know which files define the state machine.",
+        "question": "What is the correct tool sequence?",
+        "options": [
+            "A. Read every file in the repository until the state machine is found",
+            "B. Grep for 'InvalidStateTransition' to locate occurrences, then Read only the relevant files",
+            "C. Glob for *state* files, then Edit them directly",
+            "D. Ask the model to guess the file from the error name",
+        ],
+        "answer": "B",
+        "explanation": "Grep-then-Read is the discovery sequence: Grep finds content across unknown files, Read loads only what matched. Reading everything wastes context; Glob matches paths not content; guessing skips grounding entirely.",
+    },
+    {
+        "domain": 2,
+        "scenario": "A rename touches 'userData' in 12 places across one file. The developer reaches for Edit.",
+        "question": "What is the most efficient correct approach?",
+        "options": [
+            "A. Twelve separate Edit calls, one per occurrence",
+            "B. Read the file, then Write the whole file with all renames applied",
+            "C. One Edit call with replace_all for the non-unique match",
+            "D. A Bash sed command across the repository",
+        ],
+        "answer": "C",
+        "explanation": "Edit with replace_all handles non-unique matches in a single operation. Read + Write is the fallback when a unique anchor cannot be constructed \u2014 not the first resort for a uniform rename. Twelve calls waste turns; sed bypasses the specialised tool.",
+    },
     # DOMAIN 3: Claude Code Configuration & Workflows
     # ═══════════════════════════════════════════════
     {
@@ -376,18 +391,7 @@ QUESTIONS: List[Dict] = [
         "answer": "B",
         "explanation": ".claude/rules/ files with YAML frontmatter paths fields containing glob patterns enable conditional rule activation. Rules load only when editing matching files, reducing irrelevant context and token usage.",
     },
-    {
-        "domain": 3,
-        "question": "What does context: fork do in a skill's SKILL.md frontmatter?",
-        "options": [
-            "A. Creates a fork of the repository",
-            "B. Runs the skill in an isolated sub-agent context, preventing skill outputs from polluting the main conversation",
-            "C. Forks the git branch before executing",
-            "D. Duplicates the conversation for parallel execution",
-        ],
-        "answer": "B",
-        "explanation": "context: fork runs the skill in an isolated sub-agent context. Useful for skills that produce verbose output (e.g., codebase analysis) or exploratory context.",
-    },
+
     {
         "domain": 3,
         "question": "When should plan mode be selected over direct execution?",
@@ -400,19 +404,7 @@ QUESTIONS: List[Dict] = [
         "answer": "C",
         "explanation": "Plan mode is for complex tasks with architectural implications. Direct execution is for well-understood, clearly scoped changes.",
     },
-    {
-        "domain": 3,
-        "scenario": "A developer repeatedly gets inconsistent output from Claude Code when trying to transform data. Natural language descriptions of the desired transformation do not produce reliable results.",
-        "question": "What is the most effective technique to improve consistency?",
-        "options": [
-            "A. Write a longer, more detailed description",
-            "B. Provide 2-3 concrete input/output examples",
-            "C. Switch to a more powerful model",
-            "D. Use plan mode instead of direct execution",
-        ],
-        "answer": "B",
-        "explanation": "Concrete input/output examples are the most effective way to communicate expected transformations when prose descriptions are interpreted inconsistently. Few-shot examples produce consistently formatted, actionable output.",
-    },
+
     {
         "domain": 3,
         "question": "What is the -p (--print) flag used for in Claude Code CLI?",
@@ -438,18 +430,7 @@ QUESTIONS: List[Dict] = [
         "answer": "B",
         "explanation": "Including prior review findings in context when re-running reviews after new commits allows Claude to report only new or still-unaddressed issues, avoiding duplicate comments.",
     },
-    {
-        "domain": 3,
-        "question": "Where are project-scoped slash commands stored so they are shared with the team via version control?",
-        "options": [
-            "A. ~/.claude/commands/",
-            "B. .claude/commands/",
-            "C. .claude/skills/",
-            "D. The project README",
-        ],
-        "answer": "B",
-        "explanation": "Project-scoped commands in .claude/commands/ are shared via version control. User-scoped commands in ~/.claude/commands/ are personal and not shared.",
-    },
+
     {
         "domain": 3,
         "scenario": "A project CLAUDE.md says 'use tabs' and a directory CLAUDE.md says 'use spaces'. A developer asks which rule wins.",
@@ -489,6 +470,45 @@ QUESTIONS: List[Dict] = [
         "explanation": "Commands and skills were merged so both surface as /commands, but the shapes differ: command = flat .md prompt template; skill = directory with SKILL.md, supporting files, frontmatter (e.g. allowed-tools, context: fork) and automatic invocation when relevant. A flat file inside .claude/skills/ does NOT create a command.",
     },
     # ═══════════════════════════════════════════════
+    {
+        "domain": 3,
+        "scenario": "A developer asks Claude to 'explain the order processing pipeline'. It spans 15 classes across 4 packages with deep inheritance. Claude reads 3 files and returns a superficial summary that misses key flows.",
+        "question": "What is the correct fix?",
+        "options": [
+            "A. Ask Claude to read more files in the same session",
+            "B. Delegate to an Explore subagent for thorough reference-tracing discovery across the codebase",
+            "C. Switch to plan mode and re-ask the same question",
+            "D. Increase max_tokens so the summary can be longer",
+        ],
+        "answer": "B",
+        "explanation": "The Explore subagent exists for thorough multi-hop codebase discovery \u2014 tracing references across classes and packages. More files in-session dilutes attention; plan mode structures approach but does not deepen discovery; longer output cannot contain flows never read.",
+    },
+    {
+        "domain": 3,
+        "scenario": "Three Claude instances work in one repo: two extracting services, one updating shared libraries. Their commits keep conflicting.",
+        "question": "How should the parallel work be isolated and coordinated?",
+        "options": [
+            "A. All three work on main and resolve conflicts after each commit",
+            "B. git worktree \u2014 an isolated directory + branch per instance; sequence shared-file edits (one merges, the other rebases) to avoid conflicts",
+            "C. Clone the repository three times and merge at the end",
+            "D. Run the instances sequentially instead of in parallel",
+        ],
+        "answer": "B",
+        "explanation": "git worktree gives each instance an isolated working directory on its own branch without full re-clones. Shared files still need sequencing \u2014 merge-then-rebase \u2014 because isolation prevents clobbering, not logical conflicts.",
+    },
+    {
+        "domain": 3,
+        "scenario": "A scheduled workflow uses anthropics/claude-code-action with a valid API key but no prompt input. The team expects an automated summary of yesterday's commits.",
+        "question": "What actually happens, and what is missing?",
+        "options": [
+            "A. It runs the summary \u2014 the key alone is sufficient for automation",
+            "B. Nothing automated: with no prompt the action waits in interactive mode for an @claude mention or trigger_phrase; automation mode requires prompt input",
+            "C. It fails immediately \u2014 scheduled workflows cannot use the action",
+            "D. It summarises but cannot open issues without extra permissions",
+        ],
+        "answer": "B",
+        "explanation": "No prompt = interactive mode (waits for @claude/trigger_phrase); prompt = automation mode. Related trap: workflow permissions are not Claude tools \u2014 a plain-text prompt starts with no tools, so scheduled jobs needing repo access must allowlist the GitHub MCP tools.",
+    },
     # DOMAIN 4: Prompt Engineering & Structured Output
     # ═══════════════════════════════════════════════
     {
@@ -552,18 +572,7 @@ QUESTIONS: List[Dict] = [
         "answer": "B",
         "explanation": "Retry-with-error-feedback appends specific validation errors to the prompt on retry, guiding the model toward correction. Ineffective when required info is absent from source.",
     },
-    {
-        "domain": 4,
-        "question": "When are retries with error feedback ineffective for extraction?",
-        "options": [
-            "A. When the schema is too complex",
-            "B. When the required information is simply absent from the source document",
-            "C. When using the Batch API",
-            "D. When there are too many optional fields",
-        ],
-        "answer": "B",
-        "explanation": "Retries are ineffective when the required information is simply absent from the source document. No amount of prompting can extract data that does not exist.",
-    },
+
     {
         "domain": 4,
         "question": "What is the primary benefit of the Batch API (Message Batches API)?",
@@ -576,31 +585,8 @@ QUESTIONS: List[Dict] = [
         "answer": "B",
         "explanation": "The Batch API offers 50% cost savings with up to a 24-hour processing window. No guaranteed latency SLA \u2014 appropriate for non-blocking, latency-tolerant workloads. Never for real-time or user-facing requests.",
     },
-    {
-        "domain": 4,
-        "scenario": "A developer needs to run a pre-merge code review that must complete before the merge button is enabled.",
-        "question": "Which API should they use?",
-        "options": [
-            "A. Batch API \u2014 for cost savings",
-            "B. Synchronous API \u2014 for blocking, latency-sensitive workflows",
-            "C. Either \u2014 both support blocking operations",
-            "D. Streaming API \u2014 for real-time output",
-        ],
-        "answer": "B",
-        "explanation": "Batch API is inappropriate for blocking workflows like pre-merge checks because it has no guaranteed latency SLA. Use synchronous API for blocking operations.",
-    },
-    {
-        "domain": 4,
-        "question": "When using the Batch API, how are individual requests correlated in the response?",
-        "options": [
-            "A. By the order they were submitted",
-            "B. Via custom_id fields",
-            "C. By matching request content",
-            "D. By timestamp",
-        ],
-        "answer": "B",
-        "explanation": "The custom_id field correlates batch request/response pairs. Failed documents (identified by custom_id) can be resubmitted with appropriate modifications.",
-    },
+
+
     {
         "domain": 4,
         "question": "Why is a model less effective at reviewing its own generated code in the same session?",
@@ -640,21 +626,48 @@ QUESTIONS: List[Dict] = [
         "explanation": "Few-shot is the most effective fix when instructions alone fail, but 2-4 is the sweet spot \u2014 include reasoning, cover edge cases, show SKIP alongside REPORT to cut false positives. Keep examples in the system prompt for prompt-caching benefits; per-request variation belongs in the user message.",
     },
     # ═══════════════════════════════════════════════
-    # DOMAIN 5: Context Management & Reliability
-    # ═══════════════════════════════════════════════
     {
-        "domain": 5,
-        "scenario": "After many turns of conversation, an agent starts giving inconsistent answers \u2014 it references 'typical patterns' instead of specific classes discovered earlier.",
-        "question": "What is the most likely cause?",
+        "domain": 4,
+        "scenario": "A tool named 'check_security' exists, and the system prompt says 'check the security of each function'. The model writes text analyses instead of calling the tool.",
+        "question": "What is the root cause and fix?",
         "options": [
-            "A. The model lacks sufficient training data",
-            "B. Context degradation \u2014 the model is losing track of findings as context fills up",
-            "C. The user's queries are too complex",
-            "D. The model was switched mid-session",
+            "A. The tool description is too short \u2014 lengthen it",
+            "B. Keyword overlap: prompt phrasing mirroring the tool name reads as a general instruction \u2014 reword the instruction so it unambiguously directs the tool call",
+            "C. The model needs few-shot examples of tool selection",
+            "D. tool_choice must be set to 'any' on every request",
         ],
         "answer": "B",
-        "explanation": "Context degradation occurs in extended sessions \u2014 models reference 'typical patterns' rather than specific details. Mitigate with scratchpad files, structured summaries, and context management.",
+        "explanation": "When instruction wording mirrors a tool name, the model treats it as prose guidance and answers in text. Reword so the instruction clearly demands the tool call. Few-shot is not a sanctioned misselection fix; forcing tool_choice on every turn removes the model's legitimate text responses.",
     },
+    {
+        "domain": 4,
+        "scenario": "A multi-step prompt chain (extract \u2192 validate \u2192 format \u2192 synthesise) occasionally produces confident final reports built on a corrupted extraction in step 1.",
+        "question": "What structural fix prevents the cascade?",
+        "options": [
+            "A. Merge all steps into one larger prompt to avoid handoff loss",
+            "B. Inter-step validation \u2014 validate each step's focused output before the next step consumes it",
+            "C. Add more few-shot examples to the final synthesis step",
+            "D. Run the whole chain twice and average the reports",
+        ],
+        "answer": "B",
+        "explanation": "Each chained step has a small focused prompt whose output can be checked mechanically before downstream steps build on it \u2014 this stops cascading failures and lets single steps retry without rerunning the chain. Merging reintroduces attention dilution; examples at the end cannot repair a corrupted start.",
+    },
+    {
+        "domain": 4,
+        "scenario": "Extracting 2,000 contracts requires calling lookup_counterparty mid-extraction, reading the result, then finishing. The team wants the Batch API's 50% saving.",
+        "question": "Can they use it?",
+        "options": [
+            "A. Yes \u2014 Batch supports the full agentic loop including tool calls",
+            "B. No \u2014 the Batch API has no multi-turn tool calling; run synchronously and forfeit the saving",
+            "C. Yes \u2014 by polling processing_status until 'ended' mid-extraction",
+            "D. Yes \u2014 by splitting each contract into its own batch",
+        ],
+        "answer": "B",
+        "explanation": "Batch is fire-and-forget bulk inference: no tool calls, no mid-run interaction (polling only tells you when results are ready). Any workflow needing model \u2192 tool \u2192 model turns must run synchronously. Related: on batch failures, identify by custom_id and resubmit only those, chunking oversized docs \u2014 never resubmit the whole batch.",
+    },
+    # DOMAIN 5: Context Management & Reliability
+    # ═══════════════════════════════════════════════
+
     {
         "domain": 5,
         "question": "What is the 'lost in the middle' effect?",
@@ -667,19 +680,7 @@ QUESTIONS: List[Dict] = [
         "answer": "B",
         "explanation": "The 'lost in the middle' effect means models reliably process information at the beginning and end of long inputs but may miss content in the middle section.",
     },
-    {
-        "domain": 5,
-        "scenario": "A customer service agent looks up an order and gets 40+ fields, but only 5 are relevant. Over many turns, these verbose results accumulate in context.",
-        "question": "What is the best practice for managing this?",
-        "options": [
-            "A. Ignore it \u2014 context is cheap",
-            "B. Trim verbose tool outputs to only relevant fields before they accumulate in context",
-            "C. Use a more powerful model with larger context",
-            "D. Store all tool results in a database instead of conversation history",
-        ],
-        "answer": "B",
-        "explanation": "Trim verbose tool outputs to only relevant fields before they accumulate in context. Tool results can consume tokens disproportionately to their relevance.",
-    },
+
     {
         "domain": 5,
         "question": "When should an agent escalate to a human agent?",
@@ -768,17 +769,32 @@ QUESTIONS: List[Dict] = [
         "answer": "B",
         "explanation": "Scratchpads are external persistence (files on disk) \u2014 they survive any context reset, unlike conversation history. Progressive summarisation loses specifics (names, numbers, quotes); /compact summarises while project CLAUDE.md is re-read from disk, but nested CLAUDE.md files and path-scoped rules only return on next matching read.",
     },
+
     {
         "domain": 5,
-        "question": "When a tool returns multiple customer matches, how should the agent handle this?",
+        "scenario": "Context budget is 200k tokens: system prompt 8k, conversation history 120k, one tool result 65k. The model now gives thin, rushed responses.",
+        "question": "What is the arithmetic and the fix?",
         "options": [
-            "A. Select the first match",
-            "B. Ask for additional identifiers rather than selecting based on heuristics",
-            "C. Return all matches and let the user decide",
-            "D. Report an error for ambiguous results",
+            "A. 193k consumed leaves 7k for the response \u2014 trim history and verbose tool outputs to free response room",
+            "B. The budget only counts the response \u2014 raise max_tokens",
+            "C. 200k minus 8k leaves plenty \u2014 history and tool results use a separate budget",
+            "D. Switch models \u2014 the budget math differs per model",
+        ],
+        "answer": "A",
+        "explanation": "The budget is shared: system + history + tool results + response all draw from the same 200k. 8k + 120k + 65k = 193k leaves ~7k for output. Trim stale history and verbose tool fields before they accumulate \u2014 the fix is subtraction, not a bigger model.",
+    },
+    {
+        "domain": 5,
+        "scenario": "A research subagent's academic-DB search hits a 403. The subagent catches the error and returns an empty result marked successful. The coordinator reports 'no relevant papers found'.",
+        "question": "What went wrong?",
+        "options": [
+            "A. Nothing \u2014 empty results are valid and the coordinator handled them",
+            "B. Silent suppression: an access failure was masked as a valid empty result, so the coordinator believed a failed search succeeded with zero hits \u2014 propagate the 403 explicitly with what was attempted",
+            "C. The subagent should have retried the 403 until it succeeded",
+            "D. The coordinator should distrust all empty results from subagents",
         ],
         "answer": "B",
-        "explanation": "Multiple customer matches require clarification \u2014 request additional identifiers rather than selecting based on heuristics.",
+        "explanation": "The worst propagation anti-pattern: converting an error into fake success. Empty-from-success (valid) and empty-from-failure (403) look identical downstream but demand opposite responses. Propagate failures explicitly with structured error context; only genuinely empty successes count as 'no matches'.",
     },
 ]
 

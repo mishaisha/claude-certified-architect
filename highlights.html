@@ -55,6 +55,7 @@
                 <li>Subagents: no shared memory — pass context explicitly. Coordinator needs <code>"Task"</code> in <code>allowedTools</code>. Multiple Task calls in one response = parallel. Scope each agent to 4–5 tools, not 18.</li>
                 <li>Handoff format: Customer ID → factual Summary → Root cause → Recommended action. Escalate: explicit human request, policy gap, no progress. Self-reported confidence &amp; sentiment are <span class="trap">not</span> triggers.</li>
                 <li>Stale context (repeats/contradicts/ignores) → fresh start + summary injection, not more context.</li>
+                <li><code>fork_session</code> = parallel hypothesis branches from one shared baseline. Tiered routing: confident → act, uncertain → human (classifier scores OK, self-reported confidence <span class="trap">not</span>).</li>
             </ul>
         </div>
 
@@ -67,6 +68,7 @@
                 <li><code>.mcp.json</code> = team-shared (commit). <code>~/.claude.json</code> = personal. Remote entry needs <code>"type":"http"</code> + url. Secrets via <code>${VAR}</code>, paths via <code>${VAR:-default}</code>.</li>
                 <li>Community MCP servers first; custom builds only for team-specific needs. Sparse MCP descriptions lose to built-ins (e.g. Grep) — enhance them.</li>
                 <li>Resources = upfront catalogues (server lists, client attaches). Tools = act. Built-ins: Grep = content, Glob = paths, Read = known file, Edit fail → Read + Write fallback.</li>
+                <li>Discovery sequence: Grep locates → Read loads matches. Uniform rename → one Edit with <code>replace_all</code>.</li>
             </ul>
         </div>
 
@@ -79,6 +81,7 @@
                 <li>Skills = directory + <code>SKILL.md</code> (+ frontmatter, auto-invoke). Commands = flat <code>.md</code> in <code>.claude/commands/</code> (+ <code>$ARGUMENTS</code>). Project-level = shared; <code>~</code>-level = personal.</li>
                 <li>CLI: <code>-p</code> non-interactive CI · <code>--output-format json</code> + <code>--json-schema</code> (→ <code>structured_output</code>) · <code>--bare</code> skips hooks/skills/MCP/memory · <code>-c</code>/<code>-r</code> resume · <code>--max-turns</code> · <code>--append-system-prompt</code> keeps defaults, <code>--system-prompt</code> replaces them.</li>
                 <li>Plan mode for complex/multi-approach tasks. Dedup CI reviews via prior findings. Never review code in the session that wrote it.</li>
+                <li>Explore subagent for deep multi-package discovery. <code>git worktree</code> = isolated dir + branch per instance (sequence shared edits). Action with no prompt = interactive (waits for @claude); prompt = automation. Workflow permissions ≠ Claude tools — allowlist GitHub MCP tools.</li>
             </ul>
         </div>
 
@@ -91,6 +94,7 @@
                 <li>Few-shot: 2–4 with Input → Reasoning → Output; cover edge cases + SKIP examples; system-prompt placement earns caching.</li>
                 <li>Batch API: 50% cheaper, up to 24h — throughput, not speed. Never real-time/user-facing/blocking. <code>custom_id</code> correlates responses.</li>
                 <li>Chaining (extract → validate → format) is keyed as D1 fixed pipeline. Per-file passes + integration pass beat one giant review (attention dilution).</li>
+                <li>Instruction wording mirroring a tool name reads as prose → reword to demand the call. Validate between chain steps (stops cascades). Batch has <span class="trap">no</span> multi-turn tool calling — model→tool→model must be synchronous.</li>
             </ul>
         </div>
 
@@ -103,6 +107,7 @@
                 <li>Aggregate 95% hides per-type 60% → stratified validation, per-type monitoring. Inline citations die in synthesis — use structured claim–source mappings; conflicting sources get annotated + dated, never averaged.</li>
                 <li>Policy GAP (silent) → escalate. Policy VIOLATION (forbids) → refuse with explanation. Multiple matches → ask for identifiers.</li>
                 <li>Error context = failure type + what was attempted + partial results + POTENTIAL alternatives.</li>
+                <li>Budget is shared: system + history + tools + response (8k+120k+65k → ~7k left) — trim, don't upsize. 403-masked-as-empty-success is the worst anti-pattern — propagate failures explicitly.</li>
             </ul>
         </div>
 
@@ -124,6 +129,10 @@
                 <tr><td>95% overall = reliable</td><td class="trap">Check per-type accuracy</td></tr>
                 <tr><td>Custom MCP server for Jira</td><td class="trap">Community servers first</td></tr>
                 <tr><td>Team config in <code>~/.claude.json</code></td><td class="trap">Personal only — use <code>.mcp.json</code></td></tr>
+                <tr><td>Instruction mirrors tool name, model writes text</td><td class="trap">Keyword overlap — reword to demand the call</td></tr>
+                <tr><td>Batch API for agentic tool-calling loops</td><td class="trap">No multi-turn tools — run synchronous</td></tr>
+                <tr><td>Subagent returns empty success on 403</td><td class="trap">Silent suppression — propagate explicitly</td></tr>
+                <tr><td>Action with key but no prompt automates</td><td class="trap">Interactive until prompt given</td></tr>
             </table>
         </div>
 

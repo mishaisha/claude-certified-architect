@@ -883,3 +883,35 @@ These are the exact wordings and distinctions the exam keys on.
 | path-specific rules | `.claude/rules/` + `paths:` |
 | CI / non-interactive | `-p` + `--output-format json` |
 | keep defaults + extras | `--append-system-prompt` |
+
+### Real-bank additions (Oct 2026 — from the live mock-exam bank)
+
+12 topics the official bank tests that the steps above under-cover:
+
+1. **fork_session branches (D1)** — parallel hypothesis explorations from one
+   shared baseline; resume continues one line, compact leaks across hypotheses.
+2. **Tiered confidence routing (D1)** — high-confidence violations actioned,
+   high-confidence safe passed, uncertain → human. Self-reported confidence
+   is invalid; per-category classifier scores are valid.
+3. **Grep → Read sequence (D2)** — Grep locates content in unknown files,
+   Read loads only matches. Glob matches paths, not content.
+4. **Edit replace_all (D2)** — one op for uniform renames (12 occurrences);
+   Read + Write is the fallback when no unique anchor exists, not plan A.
+5. **Explore subagent (D3)** — thorough reference-tracing discovery across
+   packages; 3-file skims miss key flows. Depth tool, not a longer summary.
+6. **git worktree parallelism (D3)** — isolated dir + branch per instance;
+   sequence shared-file edits (merge, then rebase). Isolation ≠ no conflicts.
+7. **GitHub Action modes (D3)** — no prompt = interactive (waits for
+   @claude/trigger_phrase); prompt = automation. Workflow permissions are
+   NOT Claude tools — allowlist GitHub MCP tools for repo access.
+8. **Keyword overlap (D4)** — instruction wording mirroring a tool name reads
+   as prose guidance → text instead of tool call. Reword to demand the call.
+9. **Inter-step validation (D4)** — validate each chain step's output before
+   the next consumes it; stops cascades, enables single-step retry.
+10. **Batch has no tool calling (D4)** — model → tool → model workflows must
+    run synchronously. Batch failures: resubmit by custom_id only, chunked.
+11. **Token-budget arithmetic (D5)** — system + history + tools + response
+    share one budget (8k+120k+65k → ~7k left). Fix by trimming, not models.
+12. **Silent suppression (D5)** — 403 masked as empty success is the worst
+    propagation anti-pattern; coordinator believes a failed search returned
+    zero hits. Propagate failures explicitly, always.
